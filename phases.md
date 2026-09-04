@@ -13,7 +13,7 @@
 - [x] Phase 11: Alerts and Incidents UI
 - [x] Phase 12: Analysis and Verification UI
 - [x] Phase 13: Settings and Admin UI
-- [ ] Phase 14: Database Schema and RLS
+- [x] Phase 14: Database Schema and RLS
 - [ ] Phase 15: Connect Dashboard to Supabase
 - [ ] Phase 16: CRUD for Calls Alerts Incidents
 - [ ] Phase 17: FastAPI AI Service Skeleton
