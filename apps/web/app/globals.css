@@ -1,0 +1,7 @@
+/* VoxVerity Global Styles — Import Chain */
+
+@import "../styles/variables.css";
+@import "../styles/reset.css";
+@import "../styles/typography.css";
+@import "../styles/layout.css";
+@import "../styles/components.css";
