@@ -16,7 +16,7 @@
 - [x] Phase 14: Database Schema and RLS
 - [x] Phase 15: Connect Dashboard to Supabase
 - [x] Phase 16: CRUD for Calls Alerts Incidents
-- [ ] Phase 17: FastAPI AI Service Skeleton
+- [x] Phase 17: FastAPI AI Service Skeleton
 - [ ] Phase 18: Web to AI Health Integration
 - [ ] Phase 19: Audio Lab File Upload
 - [ ] Phase 20: DSP Analysis v1
