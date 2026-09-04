@@ -1,0 +1,42 @@
+# VoxVerity Phases
+
+- [x] Phase 01: Repository Bootstrap and Constitution
+- [x] Phase 02: Route Skeleton
+- [x] Phase 03: CSS and UI Foundation
+- [x] Phase 04: Landing Page
+- [x] Phase 05: Authentication UI
+- [x] Phase 06: Supabase Project and Email Auth
+- [x] Phase 07: OAuth
+- [x] Phase 08: Post-login Home Dashboard Shell
+- [x] Phase 09: Protected Navigation and Global Layout
+- [x] Phase 10: Calls Module UI
+- [x] Phase 11: Alerts and Incidents UI
+- [x] Phase 12: Analysis and Verification UI
+- [x] Phase 13: Settings and Admin UI
+- [ ] Phase 14: Database Schema and RLS
+- [ ] Phase 15: Connect Dashboard to Supabase
+- [ ] Phase 16: CRUD for Calls Alerts Incidents
+- [ ] Phase 17: FastAPI AI Service Skeleton
+- [ ] Phase 18: Web to AI Health Integration
+- [ ] Phase 19: Audio Lab File Upload
+- [ ] Phase 20: DSP Analysis v1
+- [ ] Phase 21: Human-pattern Demo Signal
+- [ ] Phase 22: Pretrained AASIST-L Integration
+- [ ] Phase 23: AASIST Evaluation and Calibration
+- [ ] Phase 24: Speaker Enrollment and ECAPA-TDNN
+- [ ] Phase 25: Analysis Aggregation and Versioning
+- [ ] Phase 26: Risk Engine v1
+- [ ] Phase 27: Realtime WebSocket Audio Pipeline
+- [ ] Phase 28: WebRTC Controlled Demo Call
+- [ ] Phase 29: Realtime DSP Dashboard
+- [ ] Phase 30: Alerts and Secondary Verification
+- [ ] Phase 31: Incident and Evidence Package
+- [ ] Phase 32: Blockchain Evidence Registry
+- [ ] Phase 33: Audit and Governance
+- [ ] Phase 34: Integrations Framework
+- [ ] Phase 35: Multilingual and Accent Readiness
+- [ ] Phase 36: Analytics and Threat Intelligence
+- [ ] Phase 37: Security Hardening
+- [ ] Phase 38: Performance and Reliability
+- [ ] Phase 39: End-to-End Demo and Runbook
+- [ ] Phase 40: Production-Shaped Finalization
