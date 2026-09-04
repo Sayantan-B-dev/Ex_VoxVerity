@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { getDashboardData } from "@/lib/supabase/queries";
+import { checkAIServiceHealth } from "@/lib/ai-service";
 import { IconMic, IconFolder, IconPhone, IconSearch, IconSettings } from "@/components/icons";
 
 function formatDuration(ms: number | null) {
@@ -50,6 +51,8 @@ export default async function DashboardPage() {
     data = { calls: [], alerts: mockAlerts, incidents: [], stats: mockStats };
   }
 
+  const aiHealth = await checkAIServiceHealth();
+
   const { stats, alerts, incidents, calls } = data;
 
   const severityBadge: Record<string, string> = {
@@ -83,6 +86,21 @@ export default async function DashboardPage() {
             <p style={{ fontSize: "var(--text-3xl)", fontWeight: "var(--weight-bold)", color: kpi.color }}>{kpi.value}</p>
           </div>
         ))}
+      </div>
+
+      {/* AI Service Status */}
+      <div className="card" style={{ marginBottom: "var(--space-6)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) 0" }}>
+            <span style={{ width: 8, height: 8, borderRadius: "var(--radius-full)", background: aiHealth.status === "online" ? "var(--color-success)" : aiHealth.status === "not_configured" ? "var(--color-text-muted)" : "var(--color-danger)" }} />
+            <span style={{ fontSize: "var(--text-sm)", fontWeight: "var(--weight-medium)" }}>AI Service</span>
+            <span className={`badge ${aiHealth.status === "online" ? "badge-success" : aiHealth.status === "not_configured" ? "badge-low" : "badge-danger"}`}> 
+              {aiHealth.status === "online" ? "Online" : aiHealth.status === "not_configured" ? "Not Configured" : "Offline"}
+            </span>
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>{aiHealth.message}</span>
+          </div>
+          <Link href="/admin/system" className="btn btn-ghost btn-sm">Details</Link>
+        </div>
       </div>
 
       <div className="grid grid-2">
