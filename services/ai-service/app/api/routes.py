@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from typing import Optional
 import uuid
@@ -95,8 +95,19 @@ async def ingest_chunk(session_id: str, metadata: ChunkMetadata):
 
 
 @router.post("/analyze/file")
-async def analyze_file():
-    return {"status": "not_implemented", "message": "Phase 19: Audio Lab file upload"}
+async def analyze_file(file: UploadFile = File(...)):
+    contents = await file.read()
+    size_bytes = len(contents)
+
+    # Basic metadata extraction (Phase 20: full DSP pipeline)
+    return {
+        "filename": file.filename,
+        "content_type": file.content_type,
+        "size_bytes": size_bytes,
+        "size_kb": round(size_bytes / 1024, 1),
+        "status": "received",
+        "message": "File received. DSP analysis will be added in Phase 20.",
+    }
 
 
 @router.post("/speaker/enroll")
