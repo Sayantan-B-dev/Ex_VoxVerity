@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 import uuid
 from datetime import datetime
+from app.dsp.analyzer import decode_wav_pcm, compute_metrics, quality_flags
 
 router = APIRouter()
 
@@ -99,15 +100,28 @@ async def analyze_file(file: UploadFile = File(...)):
     contents = await file.read()
     size_bytes = len(contents)
 
-    # Basic metadata extraction (Phase 20: full DSP pipeline)
-    return {
+    result = {
         "filename": file.filename,
         "content_type": file.content_type,
         "size_bytes": size_bytes,
         "size_kb": round(size_bytes / 1024, 1),
-        "status": "received",
-        "message": "File received. DSP analysis will be added in Phase 20.",
     }
+
+    # Try to decode and analyze
+    samples = decode_wav_pcm(contents)
+    if samples:
+        metrics = compute_metrics(samples)
+        flags = quality_flags(metrics)
+        result["dsp_metrics"] = metrics
+        result["quality_flags"] = flags
+        result["status"] = "analyzed"
+    else:
+        result["dsp_metrics"] = None
+        result["quality_flags"] = {"decode_ok": False}
+        result["status"] = "decode_failed"
+        result["message"] = "Could not decode audio. Only WAV (PCM) format is supported for analysis."
+
+    return result
 
 
 @router.post("/speaker/enroll")
