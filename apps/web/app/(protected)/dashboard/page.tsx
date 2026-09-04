@@ -1,27 +1,68 @@
 import Link from "next/link";
+import { auth } from "@/auth";
+import { getDashboardData } from "@/lib/supabase/queries";
 import { IconMic, IconFolder, IconPhone, IconSearch, IconSettings } from "@/components/icons";
 
-const mockKpis = [
-  { label: "Active Sessions", value: "3", trend: "+2 today", color: "var(--color-primary)" },
-  { label: "Risk Score (Latest)", value: "42", trend: "MEDIUM", color: "var(--risk-medium)" },
-  { label: "Alerts (24h)", value: "7", trend: "3 unresolved", color: "var(--risk-high)" },
-  { label: "Open Incidents", value: "2", trend: "1 critical", color: "var(--risk-critical)" },
+function formatDuration(ms: number | null) {
+  if (!ms) return "—";
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
+
+function timeAgo(date: string | null) {
+  if (!date) return "—";
+  const diff = Date.now() - new Date(date).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hr ago`;
+  return `${Math.floor(hrs / 24)} day ago`;
+}
+
+// Mock fallback when DB is not connected
+const mockStats = { activeSessions: 3, totalAlerts: 3, openIncidents: 2, avgRisk: 42 };
+const mockAlerts = [
+  { id: "mock-1", severity: "CRITICAL", message: "Risk threshold 85/100 exceeded", acknowledged: false, created_at: new Date(Date.now() - 3600000).toISOString(), call_id: null },
+  { id: "mock-2", severity: "HIGH", message: "Synthetic voice signal detected", acknowledged: false, created_at: new Date(Date.now() - 1080000).toISOString(), call_id: null },
+  { id: "mock-3", severity: "MEDIUM", message: "Speaker similarity mismatch", acknowledged: true, created_at: new Date(Date.now() - 21600000).toISOString(), call_id: null },
 ];
 
-const recentAlerts = [
-  { id: "a1", severity: "HIGH", message: "Synthetic voice signal detected on session #1042", time: "2 min ago" },
-  { id: "a2", severity: "MEDIUM", message: "Speaker similarity mismatch on session #1041", time: "18 min ago" },
-  { id: "a3", severity: "CRITICAL", message: "Risk threshold 85/100 exceeded on session #1039", time: "1 hr ago" },
-];
+export default async function DashboardPage() {
+  let data;
+  let usingMock = false;
 
-const severityColor: Record<string, string> = {
-  LOW: "badge-low",
-  MEDIUM: "badge-medium",
-  HIGH: "badge-high",
-  CRITICAL: "badge-critical",
-};
+  try {
+    const session = await auth();
+    const email = session?.user?.email;
+    if (email) {
+      data = await getDashboardData(email);
+    } else {
+      usingMock = true;
+    }
+  } catch {
+    usingMock = true;
+  }
 
-export default function DashboardPage() {
+  if (usingMock || !data) {
+    data = { calls: [], alerts: mockAlerts, incidents: [], stats: mockStats };
+  }
+
+  const { stats, alerts, incidents, calls } = data;
+
+  const severityBadge: Record<string, string> = {
+    LOW: "badge-low", MEDIUM: "badge-medium", HIGH: "badge-high", CRITICAL: "badge-critical",
+  };
+
+  const kpis = [
+    { label: "Active Sessions", value: stats.activeSessions, color: "var(--color-primary)" },
+    { label: "Risk Score (Latest)", value: stats.avgRisk, color: "var(--risk-medium)" },
+    { label: "Unresolved Alerts", value: stats.totalAlerts, color: "var(--risk-high)" },
+    { label: "Open Incidents", value: stats.openIncidents, color: "var(--risk-critical)" },
+  ];
+
   return (
     <div>
       <div className="page-header">
@@ -29,45 +70,41 @@ export default function DashboardPage() {
         <Link href="/live" className="btn btn-primary">Start Protection</Link>
       </div>
 
-      {/* KPI Cards */}
+      {usingMock && (
+        <div className="alert alert-info" style={{ marginBottom: "var(--space-6)" }}>
+          Showing mock data. Connect Supabase and run migrations for live data.
+        </div>
+      )}
+
       <div className="grid grid-4" style={{ marginBottom: "var(--space-8)" }}>
-        {mockKpis.map((kpi) => (
+        {kpis.map((kpi) => (
           <div className="card" key={kpi.label}>
-            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)", marginBottom: "var(--space-2)" }}>
-              {kpi.label}
-            </p>
-            <p style={{ fontSize: "var(--text-3xl)", fontWeight: "var(--weight-bold)", color: kpi.color }}>
-              {kpi.value}
-            </p>
-            <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", marginTop: "var(--space-1)" }}>
-              {kpi.trend}
-            </p>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)", marginBottom: "var(--space-2)" }}>{kpi.label}</p>
+            <p style={{ fontSize: "var(--text-3xl)", fontWeight: "var(--weight-bold)", color: kpi.color }}>{kpi.value}</p>
           </div>
         ))}
       </div>
 
-      {/* Two-column layout */}
       <div className="grid grid-2">
-        {/* Recent Alerts */}
         <div className="card">
           <div className="card-header">
             <h3 className="card-title">Recent Alerts</h3>
             <Link href="/alerts" className="btn btn-ghost btn-sm">View all</Link>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-            {recentAlerts.map((alert) => (
-              <div key={alert.id} style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", padding: "var(--space-3)", background: "var(--color-bg-secondary)", borderRadius: "var(--radius-md)" }}>
-                <span className={`badge ${severityColor[alert.severity]}`}>{alert.severity}</span>
+            {alerts.map((alert: { id: string; severity: string; message: string; acknowledged: boolean; created_at: string }) => (
+              <div key={alert.id} style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", padding: "var(--space-3)", background: "var(--color-bg-secondary)", borderRadius: "var(--radius-md)", opacity: alert.acknowledged ? 0.6 : 1 }}>
+                <span className={`badge ${severityBadge[alert.severity]}`}>{alert.severity}</span>
                 <div style={{ flex: 1 }}>
                   <p style={{ fontSize: "var(--text-sm)" }}>{alert.message}</p>
-                  <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", marginTop: "var(--space-1)" }}>{alert.time}</p>
+                  <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", marginTop: "var(--space-1)" }}>{timeAgo(alert.created_at)}</p>
                 </div>
               </div>
             ))}
+            {alerts.length === 0 && <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>No alerts.</p>}
           </div>
         </div>
 
-        {/* Quick Actions */}
         <div className="card">
           <div className="card-header">
             <h3 className="card-title">Quick Actions</h3>
@@ -82,42 +119,30 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Open Incidents */}
-      <div className="card" style={{ marginTop: "var(--space-6)" }}>
-        <div className="card-header">
-          <h3 className="card-title">Open Incidents</h3>
-          <Link href="/incidents" className="btn btn-ghost btn-sm">View all</Link>
+      {incidents.length > 0 && (
+        <div className="card" style={{ marginTop: "var(--space-6)" }}>
+          <div className="card-header">
+            <h3 className="card-title">Open Incidents</h3>
+            <Link href="/incidents" className="btn btn-ghost btn-sm">View all</Link>
+          </div>
+          <div className="table-wrapper">
+            <table className="table">
+              <thead><tr><th>ID</th><th>Status</th><th>Risk</th><th>Scope</th><th>Opened</th></tr></thead>
+              <tbody>
+                {incidents.map((inc: { id: string; status: string; risk_score: number; risk_severity: string; scope: string | null; created_at: string }) => (
+                  <tr key={inc.id}>
+                    <td style={{ fontWeight: "var(--weight-medium)" }}>INC-{inc.id.slice(0, 8)}</td>
+                    <td><span className={`badge ${severityBadge[inc.risk_severity] ?? "badge-low"}`}>{inc.status}</span></td>
+                    <td><span className={`risk-score risk-score-${inc.risk_severity.toLowerCase()}`} style={{ fontSize: "var(--text-sm)" }}>{inc.risk_score}/100</span></td>
+                    <td style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>{inc.scope ?? "—"}</td>
+                    <td style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>{timeAgo(inc.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div className="table-wrapper">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Status</th>
-                <th>Session</th>
-                <th>Risk</th>
-                <th>Opened</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>INC-1039</td>
-                <td><span className="badge badge-critical">OPEN</span></td>
-                <td>#1039</td>
-                <td><span className="risk-score risk-score-critical" style={{ fontSize: "var(--text-sm)" }}>85/100</span></td>
-                <td>1 hr ago</td>
-              </tr>
-              <tr>
-                <td>INC-1041</td>
-                <td><span className="badge badge-high">INVESTIGATING</span></td>
-                <td>#1041</td>
-                <td><span className="risk-score risk-score-high" style={{ fontSize: "var(--text-sm)" }}>62/100</span></td>
-                <td>2 hr ago</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

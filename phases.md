@@ -14,7 +14,7 @@
 - [x] Phase 12: Analysis and Verification UI
 - [x] Phase 13: Settings and Admin UI
 - [x] Phase 14: Database Schema and RLS
-- [ ] Phase 15: Connect Dashboard to Supabase
+- [x] Phase 15: Connect Dashboard to Supabase
 - [ ] Phase 16: CRUD for Calls Alerts Incidents
 - [ ] Phase 17: FastAPI AI Service Skeleton
 - [ ] Phase 18: Web to AI Health Integration
