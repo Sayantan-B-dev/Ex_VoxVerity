@@ -30,4 +30,11 @@ next-env.d.ts
 .vercel
 coverage/
  blockchain/.env
+
+# Python
 __pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+
