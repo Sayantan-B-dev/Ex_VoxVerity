@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
+    # CORS origins (comma-separated)
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+
     # Model settings
     aasist_model_path: str = "model_artifacts/aasist_l.pth"
     ecapa_model_path: str = "model_artifacts/ecapa_tdnn.pth"

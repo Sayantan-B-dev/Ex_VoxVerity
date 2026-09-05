@@ -85,8 +85,13 @@ async def _process_chunks_loop(session_id: str):
 
     while True:
         session = manager.get_session(session_id)
-        if not session or session.state in ("STOPPED", "FAILED", "IDLE"):
+        if not session or session.state in ("STOPPED", "FAILED"):
             break
+
+        # Wait for session to become active
+        if session.state == "IDLE":
+            await asyncio.sleep(0.2)
+            continue
 
         chunk = session.get_next_chunk()
         if chunk:
@@ -132,19 +137,32 @@ async def _analyze_chunk(chunk: dict, source: str) -> dict:
     except Exception:
         return {"error": "Invalid audio data"}
 
-    # Try to decode as WAV
-    from app.dsp.analyzer import decode_wav_pcm
-    samples = decode_wav_pcm(audio_bytes)
+    encoding = chunk.get("encoding", "")
+    samples = None
 
-    if samples is None:
-        # Try raw PCM (16-bit signed le)
+    # Decode based on encoding type
+    if encoding == "pcm_s16le":
+        # Raw 16-bit signed little-endian PCM from browser
         try:
             import struct
             fmt = f"<{len(audio_bytes) // 2}h"
             raw_samples = struct.unpack(fmt, audio_bytes)
             samples = [s / 32768.0 for s in raw_samples]
         except Exception:
-            return {"error": "Could not decode audio"}
+            return {"error": "Could not decode PCM data"}
+    else:
+        # Try WAV first, then raw PCM as fallback
+        from app.dsp.analyzer import decode_wav_pcm
+        samples = decode_wav_pcm(audio_bytes)
+
+        if samples is None:
+            try:
+                import struct
+                fmt = f"<{len(audio_bytes) // 2}h"
+                raw_samples = struct.unpack(fmt, audio_bytes)
+                samples = [s / 32768.0 for s in raw_samples]
+            except Exception:
+                return {"error": "Could not decode audio"}
 
     if not samples:
         return {"error": "Empty audio"}

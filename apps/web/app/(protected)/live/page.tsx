@@ -45,6 +45,7 @@ export default function LivePage() {
   const [riskTrend, setRiskTrend] = useState<RiskTrend[]>([]);
   const [latestDsp, setLatestDsp] = useState<DspMetrics | null>(null);
   const [latestQuality, setLatestQuality] = useState<Record<string, boolean>>({});
+  const [aiStatus, setAiStatus] = useState<"unknown" | "online" | "offline">("unknown");
 
   const wsRef = useRef<WebSocket | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -55,6 +56,7 @@ export default function LivePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const freqCanvasRef = useRef<HTMLCanvasElement>(null);
   const captureStateRef = useRef<CaptureState>("OFF");
+  const pcmBufferRef = useRef<Float32Array[]>([]);
 
   // Audio level monitoring
   useEffect(() => {
@@ -252,6 +254,7 @@ export default function LivePage() {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      console.log("[Live] WebSocket connected to", wsUrl);
       setConnected(true);
       setError("");
       reconnectAttemptRef.current = 0;
@@ -262,6 +265,7 @@ export default function LivePage() {
     ws.onmessage = (msgEvent) => {
       try {
         const data = JSON.parse(msgEvent.data);
+        console.log("[Live] WS message:", data.type);
         handleServerMessage(data);
       } catch (e) {
         console.error("Failed to parse WS message:", e);
@@ -269,7 +273,7 @@ export default function LivePage() {
     };
 
     ws.onerror = (errEvent) => {
-      console.error("WebSocket error:", {
+      console.error("[Live] WebSocket error:", {
         url: wsUrl,
         readyState: ws.readyState,
         sessionId,
@@ -280,6 +284,7 @@ export default function LivePage() {
     };
 
     ws.onclose = (closeEvent) => {
+      console.log("[Live] WebSocket closed, code:", closeEvent.code);
       setConnected(false);
       if (captureStateRef.current === "ACTIVE" && reconnectAttemptRef.current < maxReconnectAttempts) {
         const delay = Math.min(1000 * Math.pow(2, reconnectAttemptRef.current), 16000);
@@ -371,9 +376,20 @@ export default function LivePage() {
       source.connect(analyser);
       analyserRef.current = analyser;
 
+      // ScriptProcessorNode to capture raw PCM samples
+      const bufferSize = 4096;
+      const scriptProcessor = audioContext.createScriptProcessor(bufferSize, 1, 1);
+      scriptProcessor.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        pcmBufferRef.current.push(new Float32Array(input));
+      };
+      source.connect(scriptProcessor);
+      scriptProcessor.connect(audioContext.destination);
+
       connectWebSocket();
       setCaptureState("ACTIVE");
       captureStateRef.current = "ACTIVE";
+      console.log("[Live] Capture started, starting chunk interval");
       chunkIntervalRef.current = setInterval(() => sendAudioChunk(stream), 3000);
 
     } catch (e) {
@@ -382,37 +398,61 @@ export default function LivePage() {
     }
   }
 
-  async function sendAudioChunk(stream: MediaStream) {
+  async function sendAudioChunk(_stream: MediaStream) {
     const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.log("[Live] WS not open, skipping chunk. readyState:", ws?.readyState);
+      return;
+    }
 
     try {
-      const audioContext = new AudioContext({ sampleRate: 16000 });
-      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (e) => chunks.push(e.data);
+      // Collect accumulated PCM samples from the buffer
+      const buffered = pcmBufferRef.current;
+      if (buffered.length === 0) {
+        console.log("[Live] PCM buffer empty, skipping chunk");
+        return;
+      }
 
-      recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: "audio/webm" });
-        const arrayBuffer = await blob.arrayBuffer();
-        const audioData = new Uint8Array(arrayBuffer);
-        const base64 = btoa(String.fromCharCode(...audioData));
+      // Concatenate all buffered frames
+      let totalSamples = 0;
+      for (const frame of buffered) totalSamples += frame.length;
 
-        sequenceRef.current += 1;
+      const merged = new Float32Array(totalSamples);
+      let offset = 0;
+      for (const frame of buffered) {
+        merged.set(frame, offset);
+        offset += frame.length;
+      }
+      pcmBufferRef.current = [];
 
-        ws.send(JSON.stringify({
-          type: "audio_chunk",
-          sequence: sequenceRef.current,
-          captured_at: new Date().toISOString(),
-          duration_ms: 3000,
-          audio_b64: base64,
-        }));
+      // Convert Float32 to Int16 PCM
+      const int16 = new Int16Array(merged.length);
+      for (let i = 0; i < merged.length; i++) {
+        const s = Math.max(-1, Math.min(1, merged[i]));
+        int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      }
 
-        audioContext.close();
-      };
+      // Base64 encode
+      const bytes = new Uint8Array(int16.buffer);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
 
-      recorder.start();
-      setTimeout(() => recorder.stop(), 3000);
+      sequenceRef.current += 1;
+
+      console.log("[Live] Sending chunk #", sequenceRef.current, "size:", base64.length);
+      ws.send(JSON.stringify({
+        type: "audio_chunk",
+        sequence: sequenceRef.current,
+        captured_at: new Date().toISOString(),
+        duration_ms: 3000,
+        encoding: "pcm_s16le",
+        sample_rate: 16000,
+        channels: 1,
+        audio_b64: base64,
+      }));
     } catch (e) {
       console.error("Failed to send audio chunk:", e);
     }
@@ -452,6 +492,14 @@ export default function LivePage() {
     return () => { stopCapture(); };
   }, []);
 
+  // Check AI service health on mount
+  useEffect(() => {
+    const aiUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? "http://localhost:8000";
+    fetch(`${aiUrl}/health`, { method: "GET" })
+      .then((r) => r.ok ? setAiStatus("online") : setAiStatus("offline"))
+      .catch(() => setAiStatus("offline"));
+  }, []);
+
   const riskColor = currentRisk
     ? currentRisk.score <= 25 ? "var(--color-success)"
     : currentRisk.score <= 50 ? "var(--color-warning)"
@@ -462,6 +510,24 @@ export default function LivePage() {
 
   return (
     <div>
+      {/* AI Service Status */}
+      <div style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "var(--space-2)",
+        padding: "var(--space-1) var(--space-3)",
+        borderRadius: "var(--radius-full)",
+        fontSize: "var(--text-xs)",
+        fontWeight: "var(--weight-medium)",
+        marginBottom: "var(--space-4)",
+        background: aiStatus === "online" ? "var(--color-success-bg)" : aiStatus === "offline" ? "var(--color-danger-bg)" : "var(--color-bg-secondary)",
+        color: aiStatus === "online" ? "var(--color-success)" : aiStatus === "offline" ? "var(--color-danger)" : "var(--color-text-muted)",
+        border: `1px solid ${aiStatus === "online" ? "var(--color-success-border)" : aiStatus === "offline" ? "var(--color-danger-border)" : "var(--color-border)"}`,
+      }}>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: aiStatus === "online" ? "var(--color-success)" : aiStatus === "offline" ? "var(--color-danger)" : "var(--color-text-muted)" }} />
+        AI Service: {aiStatus === "online" ? "Running" : aiStatus === "offline" ? "Not running — start with: uvicorn app.main:app --reload --port 8000" : "Checking..."}
+      </div>
+
       <div className="page-header">
         <h1>Live Monitor</h1>
         <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>

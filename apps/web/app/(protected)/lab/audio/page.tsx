@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface HumanPatternResult {
   score: number;
@@ -77,7 +77,16 @@ export default function LabAudioPage() {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState("");
+  const [aiStatus, setAiStatus] = useState<"unknown" | "online" | "offline">("unknown");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Check AI service on mount
+  useEffect(() => {
+    const aiUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? "http://localhost:8000";
+    fetch(`${aiUrl}/health`, { method: "GET" })
+      .then((r) => r.ok ? setAiStatus("online") : setAiStatus("offline"))
+      .catch(() => setAiStatus("offline"));
+  }, []);
 
   const allowedTypes = ["audio/wav", "audio/x-wav", "audio/mpeg", "audio/mp3", "audio/ogg", "audio/flac"];
   const maxSizeMB = 50;
@@ -100,19 +109,25 @@ export default function LabAudioPage() {
   }
 
   async function handleUpload() {
+    console.log("[AudioLab] Starting upload for file:", file);
     if (!file) return;
     setUploading(true);
     setError("");
+    setResult(null);
 
     try {
       const aiUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? "http://localhost:8000";
       const formData = new FormData();
       formData.append("file", file);
 
+      console.log("[AudioLab] Uploading to:", `${aiUrl}/v1/analyze/file`);
+
       const res = await fetch(`${aiUrl}/v1/analyze/file`, {
         method: "POST",
         body: formData,
       });
+
+      console.log("[AudioLab] Response status:", res.status);
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -120,8 +135,10 @@ export default function LabAudioPage() {
       }
 
       const data = await res.json();
+      console.log("[AudioLab] Result:", data.status);
       setResult(data);
     } catch (e) {
+      console.error("[AudioLab] Error:", e);
       setError(e instanceof Error ? e.message : "Upload failed. Is the AI service running?");
     } finally {
       setUploading(false);
@@ -179,12 +196,31 @@ export default function LabAudioPage() {
         )}
       </div>
 
+      {/* AI Service Status */}
+      <div style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "var(--space-2)",
+        padding: "var(--space-1) var(--space-3)",
+        borderRadius: "var(--radius-full)",
+        fontSize: "var(--text-xs)",
+        fontWeight: "var(--weight-medium)",
+        marginBottom: "var(--space-4)",
+        background: aiStatus === "online" ? "var(--color-success-bg)" : aiStatus === "offline" ? "var(--color-danger-bg)" : "var(--color-bg-secondary)",
+        color: aiStatus === "online" ? "var(--color-success)" : aiStatus === "offline" ? "var(--color-danger)" : "var(--color-text-muted)",
+        border: `1px solid ${aiStatus === "online" ? "var(--color-success-border)" : aiStatus === "offline" ? "var(--color-danger-border)" : "var(--color-border)"}`,
+      }}>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: aiStatus === "online" ? "var(--color-success)" : aiStatus === "offline" ? "var(--color-danger)" : "var(--color-text-muted)" }} />
+        AI Service: {aiStatus === "online" ? "Running" : aiStatus === "offline" ? "Not running — start with: uvicorn app.main:app --reload --port 8000" : "Checking..."}
+      </div>
+
       {error && <div className="alert alert-danger" style={{ marginTop: "var(--space-4)" }}>{error}</div>}
 
       {file && (
         <div style={{ marginTop: "var(--space-4)", display: "flex", gap: "var(--space-3)" }}>
           <button className="btn btn-primary" onClick={handleUpload} disabled={uploading}>
             {uploading ? "Analyzing…" : "Analyze File"}
+            {uploading && <span style={{ marginLeft: "var(--space-2)" }}>Please wait...</span>}
           </button>
           <button className="btn btn-secondary" onClick={() => { setFile(null); setResult(null); setError(""); if (inputRef.current) inputRef.current.value = ""; }}>
             Clear

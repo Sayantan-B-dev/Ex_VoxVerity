@@ -11,7 +11,11 @@ from typing import Optional
 
 
 def decode_wav_pcm(data: bytes) -> Optional[list[float]]:
-    """Decode WAV file to mono float32 samples. Returns None if not a valid WAV."""
+    """Decode WAV file to mono float32 samples.
+
+    Supports PCM (16/24/32-bit integer) and IEEE float (32-bit).
+    Returns None if not a valid WAV or decode fails.
+    """
     if len(data) < 44:
         return None
 
@@ -19,48 +23,92 @@ def decode_wav_pcm(data: bytes) -> Optional[list[float]]:
     if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
         return None
 
-    # Parse fmt chunk
-    try:
-        num_channels = struct.unpack_from("<H", data, 22)[0]
-        sample_rate = struct.unpack_from("<I", data, 24)[0]
-        bits_per_sample = struct.unpack_from("<H", data, 34)[0]
-    except struct.error:
-        return None
-
-    # Find data chunk
+    # Find fmt chunk first (may appear before or after other chunks)
+    fmt_offset = -1
+    data_offset = -1
+    data_size = 0
     offset = 12
+
     while offset < len(data) - 8:
         chunk_id = data[offset:offset + 4]
         chunk_size = struct.unpack_from("<I", data, offset + 4)[0]
-        if chunk_id == b"data":
-            break
+
+        if chunk_id == b"fmt ":
+            fmt_offset = offset + 8
+        elif chunk_id == b"data":
+            data_offset = offset + 8
+            data_size = chunk_size
+
+        # Advance to next chunk (WAV chunks are word-aligned)
         offset += 8 + chunk_size
-    else:
+        if chunk_size % 2 != 0:
+            offset += 1  # Padding byte
+
+    if fmt_offset < 0 or data_offset < 0:
         return None
 
-    data_offset = offset + 8
-    data_bytes = data[data_offset:data_offset + chunk_size]
-
-    if bits_per_sample == 16:
-        fmt = f"<{len(data_bytes) // 2}h"
-        samples = list(struct.unpack(fmt, data_bytes))
-        max_val = 32768.0
-    elif bits_per_sample == 24:
-        # 24-bit: read 3 bytes per sample
-        samples = []
-        for i in range(0, len(data_bytes) - 2, 3):
-            val = int.from_bytes(data_bytes[i:i + 3], byteorder="little", signed=True)
-            samples.append(val)
-        max_val = 8388608.0
-    elif bits_per_sample == 32:
-        fmt = f"<{len(data_bytes) // 4}i"
-        samples = list(struct.unpack(fmt, data_bytes))
-        max_val = 2147483648.0
-    else:
+    # Parse fmt chunk
+    try:
+        audio_format = struct.unpack_from("<H", data, fmt_offset)[0]
+        num_channels = struct.unpack_from("<H", data, fmt_offset + 2)[0]
+        sample_rate = struct.unpack_from("<I", data, fmt_offset + 4)[0]
+        bits_per_sample = struct.unpack_from("<H", data, fmt_offset + 14)[0]
+    except struct.error:
         return None
 
-    # Convert to float32 mono
-    float_samples = [s / max_val for s in samples]
+    # Get actual data bytes
+    data_bytes = data[data_offset:data_offset + data_size]
+
+    if not data_bytes:
+        return None
+
+    float_samples: list[float] = []
+
+    # audio_format: 1=PCM, 3=IEEE float
+    if audio_format == 3 and bits_per_sample == 32:
+        # IEEE float 32-bit
+        count = len(data_bytes) // 4
+        if count == 0:
+            return None
+        fmt_str = f"<{count}f"
+        raw = struct.unpack(fmt_str, data_bytes[:count * 4])
+        float_samples = list(raw)
+
+    elif audio_format == 1:
+        if bits_per_sample == 16:
+            count = len(data_bytes) // 2
+            if count == 0:
+                return None
+            raw = struct.unpack(f"<{count}h", data_bytes[:count * 2])
+            float_samples = [s / 32768.0 for s in raw]
+
+        elif bits_per_sample == 24:
+            samples = []
+            for i in range(0, len(data_bytes) - 2, 3):
+                val = int.from_bytes(data_bytes[i:i + 3], byteorder="little", signed=True)
+                samples.append(val)
+            if not samples:
+                return None
+            float_samples = [s / 8388608.0 for s in samples]
+
+        elif bits_per_sample == 32:
+            count = len(data_bytes) // 4
+            if count == 0:
+                return None
+            raw = struct.unpack(f"<{count}i", data_bytes[:count * 4])
+            float_samples = [s / 2147483648.0 for s in raw]
+        else:
+            return None
+    else:
+        # Unknown format — try raw PCM 16-bit as last resort
+        count = len(data_bytes) // 2
+        if count == 0:
+            return None
+        raw = struct.unpack(f"<{count}h", data_bytes[:count * 2])
+        float_samples = [s / 32768.0 for s in raw]
+
+    if not float_samples:
+        return None
 
     # Mix to mono if stereo
     if num_channels == 2:
