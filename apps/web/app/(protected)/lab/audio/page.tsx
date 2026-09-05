@@ -2,6 +2,32 @@
 
 import { useState, useRef } from "react";
 
+interface HumanPatternResult {
+  score: number;
+  label: string;
+  description: string;
+  contributing_factors: Array<{ feature: string; value: number; note: string }>;
+  flags: Record<string, boolean>;
+  quality: string;
+  method: string;
+  disclaimer: string;
+}
+
+interface DspMetrics {
+  duration_s: number;
+  sample_count: number;
+  sample_rate: number;
+  rms_energy: number;
+  dbfs: number;
+  peak_amplitude: number;
+  clipping_ratio: number;
+  zero_crossing_rate: number;
+  silence_ratio: number;
+  spectral_centroid_hz: number;
+  crest_factor: number;
+  dynamic_range_db: number;
+}
+
 export default function LabAudioPage() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -57,6 +83,11 @@ export default function LabAudioPage() {
       setUploading(false);
     }
   }
+
+  const hp = result?.human_pattern as HumanPatternResult | undefined;
+  const dsp = result?.dsp_metrics as DspMetrics | undefined;
+
+  const scoreColor = hp ? (hp.score >= 70 ? "var(--color-success)" : hp.score >= 50 ? "var(--color-warning)" : "var(--color-danger)") : "var(--color-text-secondary)";
 
   return (
     <div>
@@ -114,12 +145,101 @@ export default function LabAudioPage() {
         </div>
       )}
 
-      {/* Results */}
-      {result && (
+      {/* Human-Pattern Result */}
+      {hp && (
         <div className="card" style={{ marginTop: "var(--space-6)" }}>
-          <h3 className="card-title" style={{ marginBottom: "var(--space-4)" }}>Analysis Result</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-            {Object.entries(result).map(([key, value]) => (
+          <h3 className="card-title" style={{ marginBottom: "var(--space-4)" }}>
+            Acoustic Behavior Descriptor
+          </h3>
+
+          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", marginBottom: "var(--space-4)", fontStyle: "italic" }}>
+            {hp.disclaimer}
+          </p>
+
+          {/* Score */}
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", marginBottom: "var(--space-4)" }}>
+            <div style={{
+              fontSize: "var(--text-3xl)",
+              fontWeight: "var(--weight-bold)",
+              fontFamily: "var(--font-mono)",
+              color: scoreColor,
+            }}>
+              {hp.score}/100
+            </div>
+            <div>
+              <p style={{ fontSize: "var(--text-sm)", fontWeight: "var(--weight-semibold)" }}>
+                {hp.label.replace(/_/g, " ").toUpperCase()}
+              </p>
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+                Quality: {hp.quality}
+              </p>
+            </div>
+          </div>
+
+          {/* Description */}
+          <p style={{ marginBottom: "var(--space-4)", color: "var(--color-text-secondary)" }}>
+            {hp.description}
+          </p>
+
+          {/* Contributing Factors */}
+          {hp.contributing_factors.length > 0 && (
+            <div style={{ marginBottom: "var(--space-4)" }}>
+              <h4 style={{ fontSize: "var(--text-sm)", fontWeight: "var(--weight-semibold)", marginBottom: "var(--space-3)" }}>
+                Contributing Factors
+              </h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                {hp.contributing_factors.map((f, i) => (
+                  <div key={i} style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "var(--space-2)",
+                    background: "var(--color-bg-secondary)",
+                    borderRadius: "var(--radius-sm)",
+                  }}>
+                    <span style={{ fontSize: "var(--text-sm)", fontWeight: "var(--weight-medium)" }}>
+                      {f.feature.replace(/_/g, " ")}
+                    </span>
+                    <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
+                      {f.value}
+                    </span>
+                    <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)", flex: 1, marginLeft: "var(--space-3)" }}>
+                      {f.note}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Flags */}
+          {hp.flags && Object.keys(hp.flags).length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+              {Object.entries(hp.flags).map(([key, val]) => (
+                val ? (
+                  <span key={key} style={{
+                    padding: "var(--space-1) var(--space-3)",
+                    borderRadius: "var(--radius-full)",
+                    fontSize: "var(--text-xs)",
+                    fontWeight: "var(--weight-medium)",
+                    background: "var(--color-warning-bg)",
+                    color: "var(--color-warning)",
+                    border: "1px solid var(--color-warning-border)",
+                  }}>
+                    {key.replace(/_/g, " ")}
+                  </span>
+                ) : null
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* DSP Metrics */}
+      {dsp && (
+        <div className="card" style={{ marginTop: "var(--space-4)" }}>
+          <h3 className="card-title" style={{ marginBottom: "var(--space-4)" }}>DSP Metrics</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+            {Object.entries(dsp).map(([key, value]) => (
               <div key={key} style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)", textTransform: "capitalize" }}>
                   {key.replace(/_/g, " ")}
