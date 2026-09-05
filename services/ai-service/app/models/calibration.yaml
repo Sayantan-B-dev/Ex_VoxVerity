@@ -1,0 +1,102 @@
+# AASIST-L Calibration Configuration
+# VoxVerity Project - Phase 23
+
+# Model info
+model:
+  id: "AASIST-L"
+  version: "v1.0"
+  source: "https://huggingface.co/SpeechAntiSpoofingBenchmarks/AASIST-L"
+  license: "MIT"
+  window_samples: 64600
+  sample_rate: 16000
+
+# Score normalization
+normalization:
+  method: "min_max"  # Options: min_max, z_score, percentile
+  input_min: 0.0
+  input_max: 1.0
+  output_min: 0
+  output_max: 100
+
+# Severity thresholds (configurable per organization)
+thresholds:
+  low: 30       # Below = likely spoof signal
+  medium: 50    # Uncertain zone
+  high: 70      # Above = likely bona fide signal
+
+# Severity mapping
+severity_levels:
+  spoof_high:
+    range: [0, 25]
+    label: "HIGH_SPOOF_SIGNAL"
+    description: "Strong indicators of synthetic/spoofed audio"
+    recommended_action: "ALERT"
+  
+  spoof_low:
+    range: [26, 49]
+    label: "LOW_SPOOF_SIGNAL"
+    description: "Some indicators of synthetic/spoofed audio"
+    recommended_action: "MONITOR"
+  
+  uncertain:
+    range: [50, 60]
+    label: "UNCERTAIN"
+    description: "Insufficient signal to determine audio authenticity"
+    recommended_action: "REVIEW"
+  
+  bona_fide_low:
+    range: [61, 74]
+    label: "LOW_BONAFIDE_SIGNAL"
+    description: "Weak indicators of natural speech"
+    recommended_action: "MONITOR"
+  
+  bona_fide_high:
+    range: [75, 100]
+    label: "HIGH_BONAFIDE_SIGNAL"
+    description: "Strong indicators of natural speech"
+    recommended_action: "NONE"
+
+# Quality flags
+quality_flags:
+  insufficient_duration:
+    threshold: 0.5  # seconds
+    description: "Audio too short for reliable analysis"
+    action: "return_uncertain"
+  
+  low_energy:
+    threshold: -50  # dBFS
+    description: "Very low energy audio"
+    action: "flag_low_confidence"
+  
+  clipping_detected:
+    threshold: 0.05  # ratio
+    description: "Audio clipping detected"
+    action: "flag_quality_issue"
+
+# Confidence thresholds
+confidence:
+  min_for_action: 0.3   # Minimum confidence to trigger alert/monitor
+  high_confidence: 0.8   # High confidence threshold
+
+# Evaluation metadata
+evaluation:
+  last_evaluated: "2026-09-05"
+  test_datasets:
+    - name: "ASVspoof2019 LA"
+      split: "eval"
+      eer: "TBD"
+    - name: "Custom VoxVerity Test Set"
+      description: "Collected natural speech and synthetic samples"
+      eer: "TBD"
+  
+  known_limitations:
+    - "Performance degrades on out-of-domain data"
+    - "Replay attacks may not be well-represented"
+    - "Requires minimum 4 seconds of audio"
+    - "Channel/noise affects accuracy"
+  
+  recommendations:
+    - "Combine with DSP metrics for better accuracy"
+    - "Calibrate per deployment environment"
+    - "Monitor false positives in production"
+    - "Update thresholds based on real-world data"

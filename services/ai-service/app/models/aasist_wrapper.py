@@ -16,6 +16,7 @@ import logging
 from typing import Optional
 
 import numpy as np
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,8 @@ class AASISTWrapper:
         self.device = "cpu"
         self._loaded = False
         self._load_error: Optional[str] = None
+        self._calibration: Optional[dict] = None
+        self._load_calibration()
 
     def load(self, model_path: Optional[str] = None) -> bool:
         """Load the AASIST-L model from a checkpoint file.
@@ -183,11 +186,18 @@ class AASISTWrapper:
                 bona_fide_score = probabilities[0, 1].item()
                 confidence = max(probabilities[0]).item()
 
+            # Normalize score using calibration
+            normalization = self.normalize_score(bona_fide_score)
+
             return {
                 "model": MODEL_NAME,
                 "version": MODEL_VERSION,
                 "score": round(bona_fide_score, 4),
                 "confidence": round(confidence, 4),
+                "normalized_score": normalization["normalized_score"],
+                "severity": normalization["severity"],
+                "severity_label": normalization["severity_label"],
+                "recommended_action": normalization["recommended_action"],
                 "loaded": True,
                 "fallback": False,
                 "error": None,
@@ -261,11 +271,17 @@ class AASISTWrapper:
         else:
             score = 0.5  # Default uncertain
 
+        normalization = self.normalize_score(score)
+
         return {
             "model": MODEL_NAME,
             "version": MODEL_VERSION,
             "score": round(score, 4),
             "confidence": 0.1,
+            "normalized_score": normalization["normalized_score"],
+            "severity": normalization["severity"],
+            "severity_label": normalization["severity_label"],
+            "recommended_action": normalization["recommended_action"],
             "loaded": False,
             "fallback": True,
             "error": "Model not loaded, using heuristic fallback",
@@ -282,6 +298,76 @@ class AASISTWrapper:
             "error": self._load_error,
             "license": MODEL_LICENSE,
             "source": MODEL_SOURCE,
+            "calibration_loaded": self._calibration is not None,
+        }
+
+    def _load_calibration(self):
+        """Load calibration configuration from YAML file."""
+        try:
+            cal_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "calibration.yaml",
+            )
+            if os.path.exists(cal_path):
+                with open(cal_path, "r") as f:
+                    self._calibration = yaml.safe_load(f)
+                logger.info(f"Calibration config loaded from {cal_path}")
+            else:
+                logger.warning(f"Calibration config not found: {cal_path}")
+        except Exception as e:
+            logger.warning(f"Failed to load calibration config: {e}")
+
+    def normalize_score(self, raw_score: float) -> dict:
+        """Normalize raw model score using calibration config.
+        
+        Args:
+            raw_score: Raw model output (0-1 range).
+            
+        Returns:
+            {
+                "normalized_score": int,  # 0-100
+                "severity": str,
+                "severity_label": str,
+                "recommended_action": str,
+            }
+        """
+        if self._calibration is None:
+            # Default normalization without calibration
+            normalized = int(raw_score * 100)
+            return {
+                "normalized_score": normalized,
+                "severity": "uncertain",
+                "severity_label": "UNCERTAIN",
+                "recommended_action": "REVIEW",
+            }
+        
+        # Apply calibration
+        norm_config = self._calibration.get("normalization", {})
+        output_min = norm_config.get("output_min", 0)
+        output_max = norm_config.get("output_max", 100)
+        
+        # Min-max normalization
+        normalized = int(raw_score * (output_max - output_min) + output_min)
+        normalized = max(output_min, min(output_max, normalized))
+        
+        # Determine severity
+        severity_levels = self._calibration.get("severity_levels", {})
+        for level_name, level_config in severity_levels.items():
+            range_min, range_max = level_config.get("range", [0, 100])
+            if range_min <= normalized <= range_max:
+                return {
+                    "normalized_score": normalized,
+                    "severity": level_name,
+                    "severity_label": level_config.get("label", "UNKNOWN"),
+                    "recommended_action": level_config.get("recommended_action", "REVIEW"),
+                }
+        
+        # Default
+        return {
+            "normalized_score": normalized,
+            "severity": "uncertain",
+            "severity_label": "UNCERTAIN",
+            "recommended_action": "REVIEW",
         }
 
 
