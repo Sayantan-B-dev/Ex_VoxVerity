@@ -6,6 +6,7 @@ from datetime import datetime
 from app.dsp.analyzer import decode_wav_pcm, compute_metrics, quality_flags
 from app.dsp.human_pattern import analyze_human_pattern
 from app.models.aasist_wrapper import get_aasist
+from app.models.ecapa_wrapper import get_ecapa
 
 router = APIRouter()
 
@@ -138,14 +139,61 @@ async def analyze_file(file: UploadFile = File(...)):
     return result
 
 
+class SpeakerEnrollRequest(BaseModel):
+    user_id: str
+    name: Optional[str] = ""
+
+
+class SpeakerVerifyRequest(BaseModel):
+    user_id: str
+
+
 @router.post("/speaker/enroll")
-async def speaker_enroll():
-    return {"status": "not_implemented", "message": "Phase 24: Speaker enrollment"}
+async def speaker_enroll(
+    file: UploadFile = File(...),
+    user_id: str = "",
+    name: str = "",
+):
+    """Enroll a speaker with a reference audio sample."""
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+
+    contents = await file.read()
+    samples = decode_wav_pcm(contents)
+    if samples is None:
+        raise HTTPException(status_code=400, detail="Could not decode audio. Only WAV (PCM) is supported.")
+
+    import numpy as np
+    ecapa = get_ecapa()
+    audio_np = np.array(samples, dtype=np.float32)
+    result = ecapa.enroll_speaker(user_id, audio_np, name)
+
+    if not result["success"]:
+        raise HTTPException(status_code=500, detail=result["message"])
+
+    return result
 
 
 @router.post("/speaker/verify")
-async def speaker_verify():
-    return {"status": "not_implemented", "message": "Phase 24: Speaker verification"}
+async def speaker_verify(
+    file: UploadFile = File(...),
+    user_id: str = "",
+):
+    """Verify a speaker against enrolled reference."""
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+
+    contents = await file.read()
+    samples = decode_wav_pcm(contents)
+    if samples is None:
+        raise HTTPException(status_code=400, detail="Could not decode audio. Only WAV (PCM) is supported.")
+
+    import numpy as np
+    ecapa = get_ecapa()
+    audio_np = np.array(samples, dtype=np.float32)
+    result = ecapa.verify_speaker(user_id, audio_np)
+
+    return result
 
 
 @router.post("/risk/evaluate")
@@ -156,6 +204,7 @@ async def risk_evaluate():
 @router.get("/models")
 async def list_models():
     aasist = get_aasist()
+    ecapa = get_ecapa()
     return {
         "models": [
             {
@@ -170,9 +219,12 @@ async def list_models():
             {
                 "id": "ECAPA-TDNN",
                 "name": "Speaker Embeddings",
-                "version": "v1.0",
-                "status": "not_loaded",
-                "license": "Apache-2.0",
+                "version": ecapa.status["version"],
+                "status": "loaded" if ecapa.status["loaded"] else "not_loaded",
+                "license": ecapa.status["license"],
+                "source": ecapa.status["source"],
+                "error": ecapa.status["error"],
+                "enrollment_count": ecapa.status["enrollment_count"],
             },
         ]
     }

@@ -10,3 +10,6 @@ pytest-asyncio==0.26.0
 torch>=2.0.0
 numpy>=1.24.0
 scipy>=1.10.0
+
+# Phase 24: Speaker embeddings
+speechbrain>=1.0.0

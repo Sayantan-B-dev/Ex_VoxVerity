@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.api.routes import router
 from app.core.config import settings
 from app.models.aasist_wrapper import get_aasist
+from app.models.ecapa_wrapper import get_ecapa
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,12 @@ async def load_models():
         logger.info("AASIST-L model loaded successfully")
     else:
         logger.warning(f"AASIST-L model not loaded: {aasist.status['error']}")
+
+    ecapa = get_ecapa()
+    if ecapa.load():
+        logger.info("ECAPA-TDNN model loaded successfully")
+    else:
+        logger.warning(f"ECAPA-TDNN model not loaded: {ecapa.status['error']}")
 
 
 @app.get("/health")
@@ -47,6 +54,10 @@ async def version():
                 "version": aasist.status["version"],
                 "error": aasist.status["error"],
             },
-            "ecapa_tdnn": {"status": "not_loaded", "version": "v1.0"},
+            "ecapa_tdnn": {
+                "status": "loaded" if get_ecapa().status["loaded"] else "not_loaded",
+                "version": get_ecapa().status["version"],
+                "error": get_ecapa().status["error"],
+            },
         },
     }

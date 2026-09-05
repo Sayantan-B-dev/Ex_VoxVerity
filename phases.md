@@ -23,7 +23,7 @@
 - [x] Phase 21: Human-pattern Demo Signal
 - [x] Phase 22: Pretrained AASIST-L Integration
 - [x] Phase 23: AASIST Evaluation and Calibration
-- [ ] Phase 24: Speaker Enrollment and ECAPA-TDNN
+- [x] Phase 24: Speaker Enrollment and ECAPA-TDNN
 - [ ] Phase 25: Analysis Aggregation and Versioning
 - [ ] Phase 26: Risk Engine v1
 - [ ] Phase 27: Realtime WebSocket Audio Pipeline
