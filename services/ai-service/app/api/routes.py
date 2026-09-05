@@ -9,6 +9,7 @@ from app.models.aasist_wrapper import get_aasist
 from app.models.ecapa_wrapper import get_ecapa
 from app.analysis.aggregator import get_aggregator
 from app.risk.engine import get_risk_engine
+from app.risk.alerts import get_alert_service
 
 router = APIRouter()
 
@@ -249,6 +250,32 @@ async def risk_evaluate(
     })
 
     return risk_result
+
+
+@router.get("/alerts")
+async def list_alerts(
+    session_id: Optional[str] = None,
+    active_only: bool = False,
+):
+    """List alerts, optionally filtered by session."""
+    alert_service = get_alert_service()
+    if session_id:
+        alerts = alert_service.get_session_alerts(session_id)
+    elif active_only:
+        alerts = alert_service.get_active_alerts()
+    else:
+        alerts = alert_service.get_recent_alerts()
+    return {"alerts": alerts}
+
+
+@router.post("/alerts/{alert_id}/acknowledge")
+async def acknowledge_alert(alert_id: str, user_id: str = "operator"):
+    """Acknowledge an alert."""
+    alert_service = get_alert_service()
+    alert = alert_service.acknowledge_alert(alert_id, user_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return alert
 
 
 @router.get("/models")

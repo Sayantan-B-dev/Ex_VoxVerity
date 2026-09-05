@@ -14,6 +14,7 @@ from app.dsp.analyzer import compute_metrics, quality_flags
 from app.dsp.human_pattern import analyze_human_pattern
 from app.models.aasist_wrapper import get_aasist
 from app.risk.engine import get_risk_engine
+from app.risk.alerts import get_alert_service
 
 logger = logging.getLogger(__name__)
 
@@ -93,14 +94,22 @@ async def _process_chunks_loop(session_id: str):
                 result = await _analyze_chunk(chunk, session.source)
                 await manager.send_analysis_result(session_id, result)
 
-                # Check if risk threshold crossed
+                # Check if risk threshold crossed and create alert
                 risk = result.get("risk", {})
-                if risk.get("score", 0) >= 75:
+                alert_service = get_alert_service()
+                alert = alert_service.check_and_create_alert(
+                    session_id=session_id,
+                    risk_result=risk,
+                    sequence=chunk["sequence"],
+                )
+                if alert:
                     await manager.send_alert(session_id, {
-                        "type": "high_risk",
-                        "score": risk["score"],
-                        "severity": risk["severity"],
-                        "sequence": chunk["sequence"],
+                        "type": "alert_created",
+                        "alert_id": alert["alert_id"],
+                        "score": alert["score"],
+                        "severity": alert["severity"],
+                        "sequence": alert["sequence"],
+                        "recommendation": alert["recommendation"],
                     })
 
             except Exception as e:
