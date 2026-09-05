@@ -13,6 +13,7 @@ from app.risk.alerts import get_alert_service
 from app.risk.incidents import get_incident_service
 from app.governance.audit import get_audit_service
 from app.governance.model_registry import get_model_registry
+from app.models.languages import get_language_metadata
 
 router = APIRouter()
 
@@ -421,6 +422,12 @@ async def list_models():
             },
         ]
     }
+
+
+@router.get("/languages")
+async def list_languages():
+    """List supported languages and evaluation status."""
+    return get_language_metadata()
 
 
 @router.get("/config")
