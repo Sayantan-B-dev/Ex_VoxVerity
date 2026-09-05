@@ -21,7 +21,7 @@
 - [x] Phase 19: Audio Lab File Upload
 - [x] Phase 20: DSP Analysis v1
 - [x] Phase 21: Human-pattern Demo Signal
-- [ ] Phase 22: Pretrained AASIST-L Integration
+- [x] Phase 22: Pretrained AASIST-L Integration
 - [ ] Phase 23: AASIST Evaluation and Calibration
 - [ ] Phase 24: Speaker Enrollment and ECAPA-TDNN
 - [ ] Phase 25: Analysis Aggregation and Versioning

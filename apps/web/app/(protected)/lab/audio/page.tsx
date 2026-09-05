@@ -28,6 +28,16 @@ interface DspMetrics {
   dynamic_range_db: number;
 }
 
+interface SpoofDetectionResult {
+  model: string;
+  version: string;
+  score: number;
+  confidence: number;
+  loaded: boolean;
+  fallback: boolean;
+  error: string | null;
+}
+
 export default function LabAudioPage() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -86,6 +96,7 @@ export default function LabAudioPage() {
 
   const hp = result?.human_pattern as HumanPatternResult | undefined;
   const dsp = result?.dsp_metrics as DspMetrics | undefined;
+  const sd = result?.spoof_detection as SpoofDetectionResult | undefined;
 
   const scoreColor = hp ? (hp.score >= 70 ? "var(--color-success)" : hp.score >= 50 ? "var(--color-warning)" : "var(--color-danger)") : "var(--color-text-secondary)";
 
@@ -231,6 +242,43 @@ export default function LabAudioPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Spoof Detection (AASIST-L) */}
+      {sd && (
+        <div className="card" style={{ marginTop: "var(--space-4)" }}>
+          <h3 className="card-title" style={{ marginBottom: "var(--space-2)" }}>
+            Spoof Detection (AASIST-L)
+          </h3>
+          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", marginBottom: "var(--space-4)", fontStyle: "italic" }}>
+            Model score only. Higher score = more likely bona fide. Not an absolute verdict.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
+              <div style={{
+                fontSize: "var(--text-2xl)",
+                fontWeight: "var(--weight-bold)",
+                fontFamily: "var(--font-mono)",
+                color: sd.fallback ? "var(--color-text-muted)" : (sd.score >= 0.7 ? "var(--color-success)" : sd.score >= 0.4 ? "var(--color-warning)" : "var(--color-danger)"),
+              }}>
+                {sd.score.toFixed(3)}
+              </div>
+              <div>
+                <p style={{ fontSize: "var(--text-sm)", fontWeight: "var(--weight-semibold)", textTransform: "uppercase" }}>
+                  {sd.model} {sd.version}
+                </p>
+                <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+                  Confidence: {(sd.confidence * 100).toFixed(1)}% · {sd.loaded ? "Model loaded" : "Fallback"}
+                </p>
+              </div>
+            </div>
+            {sd.error && (
+              <p style={{ fontSize: "var(--text-xs)", color: "var(--color-warning)", fontStyle: "italic" }}>
+                {sd.error}
+              </p>
+            )}
+          </div>
         </div>
       )}
 

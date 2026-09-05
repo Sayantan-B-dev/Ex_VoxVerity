@@ -5,3 +5,8 @@ python-dotenv==1.1.0
 httpx==0.28.1
 pytest==8.4.1
 pytest-asyncio==0.26.0
+
+# Phase 22: AASIST-L inference
+torch>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0

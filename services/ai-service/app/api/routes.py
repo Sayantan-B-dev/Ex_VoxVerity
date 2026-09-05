@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 from app.dsp.analyzer import decode_wav_pcm, compute_metrics, quality_flags
 from app.dsp.human_pattern import analyze_human_pattern
+from app.models.aasist_wrapper import get_aasist
 
 router = APIRouter()
 
@@ -111,17 +112,26 @@ async def analyze_file(file: UploadFile = File(...)):
     # Try to decode and analyze
     samples = decode_wav_pcm(contents)
     if samples:
+        import numpy as np
         metrics = compute_metrics(samples)
         flags = quality_flags(metrics)
         human_pattern = analyze_human_pattern(metrics)
+
+        # Run AASIST-L spoof detection
+        aasist = get_aasist()
+        audio_np = np.array(samples, dtype=np.float32)
+        aasist_result = aasist.predict(audio_np)
+
         result["dsp_metrics"] = metrics
         result["quality_flags"] = flags
         result["human_pattern"] = human_pattern
+        result["spoof_detection"] = aasist_result
         result["status"] = "analyzed"
     else:
         result["dsp_metrics"] = None
         result["quality_flags"] = {"decode_ok": False}
         result["human_pattern"] = None
+        result["spoof_detection"] = None
         result["status"] = "decode_failed"
         result["message"] = "Could not decode audio. Only WAV (PCM) format is supported for analysis."
 
@@ -145,14 +155,17 @@ async def risk_evaluate():
 
 @router.get("/models")
 async def list_models():
+    aasist = get_aasist()
     return {
         "models": [
             {
                 "id": "AASIST-L",
                 "name": "Audio Anti-Spoofing",
-                "version": "v1.0",
-                "status": "not_loaded",
-                "license": "MIT",
+                "version": aasist.status["version"],
+                "status": "loaded" if aasist.status["loaded"] else "not_loaded",
+                "license": aasist.status["license"],
+                "source": aasist.status["source"],
+                "error": aasist.status["error"],
             },
             {
                 "id": "ECAPA-TDNN",
