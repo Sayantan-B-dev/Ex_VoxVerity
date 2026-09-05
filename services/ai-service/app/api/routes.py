@@ -15,6 +15,7 @@ from app.governance.audit import get_audit_service
 from app.governance.model_registry import get_model_registry
 from app.models.languages import get_language_metadata
 from app.analytics.service import get_analytics_service
+from app.realtime.performance import get_performance_monitor, get_backpressure_manager
 
 router = APIRouter()
 
@@ -457,6 +458,18 @@ async def analytics_models():
     """Get model usage statistics."""
     analytics = get_analytics_service()
     return {"models": analytics.get_model_usage()}
+
+
+@router.get("/performance")
+async def get_performance():
+    """Get realtime pipeline performance metrics."""
+    monitor = get_performance_monitor()
+    backpressure = get_backpressure_manager()
+    return {
+        "metrics": monitor.get_metrics(),
+        "health": monitor.get_health_status(),
+        "backpressure": backpressure.get_status(),
+    }
 
 
 @router.get("/config")
