@@ -26,7 +26,7 @@
 - [x] Phase 24: Speaker Enrollment and ECAPA-TDNN
 - [x] Phase 25: Analysis Aggregation and Versioning
 - [x] Phase 26: Risk Engine v1
-- [ ] Phase 27: Realtime WebSocket Audio Pipeline
+- [x] Phase 27: Realtime WebSocket Audio Pipeline
 - [ ] Phase 28: WebRTC Controlled Demo Call
 - [ ] Phase 29: Realtime DSP Dashboard
 - [ ] Phase 30: Alerts and Secondary Verification
