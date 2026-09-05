@@ -11,6 +11,8 @@ from app.analysis.aggregator import get_aggregator
 from app.risk.engine import get_risk_engine
 from app.risk.alerts import get_alert_service
 from app.risk.incidents import get_incident_service
+from app.governance.audit import get_audit_service
+from app.governance.model_registry import get_model_registry
 
 router = APIRouter()
 
@@ -361,6 +363,35 @@ async def verify_evidence(evidence_id: str):
     if not result.get("verified"):
         raise HTTPException(status_code=404, detail=result.get("error", "Verification failed"))
     return result
+
+
+@router.get("/audit")
+async def list_audit_events(
+    action: Optional[str] = None,
+    user_id: Optional[str] = None,
+    limit: int = 50,
+):
+    """List audit events."""
+    audit = get_audit_service()
+    events = audit.get_events(action=action, user_id=user_id, limit=limit)
+    return {"events": events, "total": audit.get_event_count()}
+
+
+@router.get("/model-registry")
+async def list_model_registry():
+    """List registered models with governance metadata."""
+    registry = get_model_registry()
+    return {"models": registry.list_models()}
+
+
+@router.get("/model-registry/{model_id}")
+async def get_model_registry_entry(model_id: str):
+    """Get model registry entry."""
+    registry = get_model_registry()
+    model = registry.get_model(model_id)
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+    return model
 
 
 @router.get("/models")
