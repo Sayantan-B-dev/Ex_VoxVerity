@@ -2,6 +2,7 @@ import logging
 from fastapi import FastAPI
 from app.api.routes import router
 from app.realtime.routes import router as realtime_router
+from app.realtime.signaling import router as signaling_router
 from app.core.config import settings
 from app.models.aasist_wrapper import get_aasist
 from app.models.ecapa_wrapper import get_ecapa
@@ -16,6 +17,7 @@ app = FastAPI(
 
 app.include_router(router, prefix="/v1")
 app.include_router(realtime_router)
+app.include_router(signaling_router)
 
 
 @app.on_event("startup")
