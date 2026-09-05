@@ -7,6 +7,7 @@ from app.dsp.analyzer import decode_wav_pcm, compute_metrics, quality_flags
 from app.dsp.human_pattern import analyze_human_pattern
 from app.models.aasist_wrapper import get_aasist
 from app.models.ecapa_wrapper import get_ecapa
+from app.analysis.aggregator import get_aggregator
 
 router = APIRouter()
 
@@ -123,16 +124,27 @@ async def analyze_file(file: UploadFile = File(...)):
         audio_np = np.array(samples, dtype=np.float32)
         aasist_result = aasist.predict(audio_np)
 
+        # Aggregate all signals into versioned result
+        aggregator = get_aggregator()
+        analysis = aggregator.aggregate(
+            dsp_metrics=metrics,
+            quality_flags=flags,
+            human_pattern=human_pattern,
+            spoof_detection=aasist_result,
+        )
+
         result["dsp_metrics"] = metrics
         result["quality_flags"] = flags
         result["human_pattern"] = human_pattern
         result["spoof_detection"] = aasist_result
+        result["analysis"] = analysis
         result["status"] = "analyzed"
     else:
         result["dsp_metrics"] = None
         result["quality_flags"] = {"decode_ok": False}
         result["human_pattern"] = None
         result["spoof_detection"] = None
+        result["analysis"] = None
         result["status"] = "decode_failed"
         result["message"] = "Could not decode audio. Only WAV (PCM) format is supported for analysis."
 

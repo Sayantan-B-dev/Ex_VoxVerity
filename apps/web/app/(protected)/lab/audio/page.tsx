@@ -38,6 +38,30 @@ interface SpoofDetectionResult {
   error: string | null;
 }
 
+interface ContributingFactor {
+  signal: string;
+  score?: number;
+  weight?: number;
+  label?: string;
+  similarity?: number;
+  match?: boolean;
+  flag?: string;
+  impact?: string;
+}
+
+interface AnalysisResult {
+  result_id: string;
+  timestamp: string;
+  aggregation_version: string;
+  risk_indicators: {
+    overall_score: number;
+    severity: string;
+    contributing_factors: ContributingFactor[];
+  };
+  model_versions: Record<string, { model: string; version: string; loaded?: boolean; fallback?: boolean; similarity?: number }>;
+  metadata: Record<string, string>;
+}
+
 export default function LabAudioPage() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -97,7 +121,7 @@ export default function LabAudioPage() {
   const hp = result?.human_pattern as HumanPatternResult | undefined;
   const dsp = result?.dsp_metrics as DspMetrics | undefined;
   const sd = result?.spoof_detection as SpoofDetectionResult | undefined;
-
+  const analysis = result?.analysis as AnalysisResult | undefined;
   const scoreColor = hp ? (hp.score >= 70 ? "var(--color-success)" : hp.score >= 50 ? "var(--color-warning)" : "var(--color-danger)") : "var(--color-text-secondary)";
 
   return (
@@ -156,9 +180,97 @@ export default function LabAudioPage() {
         </div>
       )}
 
+      {/* Aggregated Analysis Result */}
+      {analysis && (
+        <div className="card" style={{ marginTop: "var(--space-6)" }}>
+          <h3 className="card-title" style={{ marginBottom: "var(--space-2)" }}>
+            Aggregated Analysis
+          </h3>
+          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", marginBottom: "var(--space-4)", fontStyle: "italic" }}>
+            Versioned signal bundle — every result is attributable and reproducible.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+            {/* Risk Overview */}
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
+              <div style={{
+                fontSize: "var(--text-2xl)",
+                fontWeight: "var(--weight-bold)",
+                fontFamily: "var(--font-mono)",
+                color: analysis.risk_indicators.severity === "LOW" ? "var(--color-success)"
+                  : analysis.risk_indicators.severity === "MEDIUM" ? "var(--color-warning)"
+                  : "var(--color-danger)",
+              }}>
+                {analysis.risk_indicators.overall_score}/100
+              </div>
+              <div>
+                <p style={{ fontSize: "var(--text-sm)", fontWeight: "var(--weight-semibold)" }}>
+                  Risk: {analysis.risk_indicators.severity}
+                </p>
+                <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>
+                  Version {analysis.aggregation_version} · {new Date(analysis.timestamp).toLocaleTimeString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Contributing Factors */}
+            {analysis.risk_indicators.contributing_factors.length > 0 && (
+              <div>
+                <h4 style={{ fontSize: "var(--text-sm)", fontWeight: "var(--weight-semibold)", marginBottom: "var(--space-2)" }}>
+                  Contributing Signals
+                </h4>
+                <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+                  {analysis.risk_indicators.contributing_factors.map((f, i) => (
+                    <div key={i} style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: "var(--space-1) var(--space-2)",
+                      background: "var(--color-bg-secondary)",
+                      borderRadius: "var(--radius-sm)",
+                      fontSize: "var(--text-sm)",
+                    }}>
+                      <span style={{ fontWeight: "var(--weight-medium)", textTransform: "capitalize" }}>
+                        {f.signal.replace(/_/g, " ")}
+                      </span>
+                      <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-text-muted)" }}>
+                        {f.label ?? (f.score !== undefined ? String(f.score) : "")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Model Versions */}
+            {Object.keys(analysis.model_versions).length > 0 && (
+              <div>
+                <h4 style={{ fontSize: "var(--text-sm)", fontWeight: "var(--weight-semibold)", marginBottom: "var(--space-2)" }}>
+                  Model Attribution
+                </h4>
+                <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+                  {Object.entries(analysis.model_versions).map(([key, mv]) => (
+                    <div key={key} style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: "var(--text-sm)",
+                    }}>
+                      <span style={{ color: "var(--color-text-muted)", textTransform: "capitalize" }}>
+                        {key.replace(/_/g, " ")}
+                      </span>
+                      <span style={{ fontFamily: "var(--font-mono)" }}>
+                        {mv.model} {mv.version} {mv.loaded ? "(loaded)" : "(fallback)"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Human-Pattern Result */}
       {hp && (
-        <div className="card" style={{ marginTop: "var(--space-6)" }}>
+        <div className="card" style={{ marginTop: "var(--space-4)" }}>
           <h3 className="card-title" style={{ marginBottom: "var(--space-4)" }}>
             Acoustic Behavior Descriptor
           </h3>

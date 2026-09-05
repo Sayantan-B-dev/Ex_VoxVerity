@@ -24,7 +24,7 @@
 - [x] Phase 22: Pretrained AASIST-L Integration
 - [x] Phase 23: AASIST Evaluation and Calibration
 - [x] Phase 24: Speaker Enrollment and ECAPA-TDNN
-- [ ] Phase 25: Analysis Aggregation and Versioning
+- [x] Phase 25: Analysis Aggregation and Versioning
 - [ ] Phase 26: Risk Engine v1
 - [ ] Phase 27: Realtime WebSocket Audio Pipeline
 - [ ] Phase 28: WebRTC Controlled Demo Call
