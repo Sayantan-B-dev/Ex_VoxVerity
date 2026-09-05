@@ -10,6 +10,7 @@ from app.models.ecapa_wrapper import get_ecapa
 from app.analysis.aggregator import get_aggregator
 from app.risk.engine import get_risk_engine
 from app.risk.alerts import get_alert_service
+from app.risk.incidents import get_incident_service
 
 router = APIRouter()
 
@@ -276,6 +277,90 @@ async def acknowledge_alert(alert_id: str, user_id: str = "operator"):
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
     return alert
+
+
+@router.get("/incidents")
+async def list_incidents(
+    session_id: Optional[str] = None,
+):
+    """List incidents."""
+    incident_service = get_incident_service()
+    if session_id:
+        incidents = incident_service.get_session_incidents(session_id)
+    else:
+        incidents = incident_service.get_recent_incidents()
+    return {"incidents": incidents}
+
+
+@router.post("/incidents")
+async def create_incident(
+    session_id: str = "",
+    alert_id: Optional[str] = None,
+):
+    """Create a new incident."""
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+
+    incident_service = get_incident_service()
+    incident = incident_service.create_incident(
+        session_id=session_id,
+        alert_id=alert_id,
+    )
+    return incident
+
+
+@router.get("/incidents/{incident_id}")
+async def get_incident(incident_id: str):
+    """Get incident by ID."""
+    incident_service = get_incident_service()
+    incident = incident_service.get_incident(incident_id)
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    return incident
+
+
+@router.post("/incidents/{incident_id}/update")
+async def update_incident(
+    incident_id: str,
+    status: Optional[str] = None,
+    owner: Optional[str] = None,
+    note: Optional[str] = None,
+    resolution: Optional[str] = None,
+    false_positive: Optional[bool] = None,
+):
+    """Update an incident."""
+    incident_service = get_incident_service()
+    incident = incident_service.update_incident(
+        incident_id=incident_id,
+        status=status,
+        owner=owner,
+        note=note,
+        resolution=resolution,
+        false_positive=false_positive,
+    )
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    return incident
+
+
+@router.get("/evidence/{evidence_id}")
+async def get_evidence(evidence_id: str):
+    """Get evidence by ID."""
+    incident_service = get_incident_service()
+    evidence = incident_service.get_evidence(evidence_id)
+    if not evidence:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+    return evidence
+
+
+@router.post("/evidence/{evidence_id}/verify")
+async def verify_evidence(evidence_id: str):
+    """Verify evidence hash integrity."""
+    incident_service = get_incident_service()
+    result = incident_service.verify_evidence(evidence_id)
+    if not result.get("verified"):
+        raise HTTPException(status_code=404, detail=result.get("error", "Verification failed"))
+    return result
 
 
 @router.get("/models")
