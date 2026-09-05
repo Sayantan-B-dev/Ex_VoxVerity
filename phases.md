@@ -31,7 +31,7 @@
 - [x] Phase 29: Realtime DSP Dashboard
 - [x] Phase 30: Alerts and Secondary Verification
 - [x] Phase 31: Incident and Evidence Package
-- [ ] Phase 32: Blockchain Evidence Registry
+- [x] Phase 32: Blockchain Evidence Registry
 - [ ] Phase 33: Audit and Governance
 - [ ] Phase 34: Integrations Framework
 - [ ] Phase 35: Multilingual and Accent Readiness

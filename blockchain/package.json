@@ -1,0 +1,19 @@
+{
+  "name": "voxverity-blockchain",
+  "version": "0.1.0",
+  "description": "VoxVerity Evidence Registry on Polygon Amoy",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:amoy": "hardhat run scripts/deploy.js --network amoy",
+    "node": "hardhat node"
+  },
+  "devDependencies": {
+    "hardhat": "^2.22.0",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0"
+  },
+  "dependencies": {
+    "ethers": "^6.13.0"
+  }
+}
