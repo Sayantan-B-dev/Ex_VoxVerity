@@ -14,6 +14,7 @@ from app.risk.incidents import get_incident_service
 from app.governance.audit import get_audit_service
 from app.governance.model_registry import get_model_registry
 from app.models.languages import get_language_metadata
+from app.analytics.service import get_analytics_service
 
 router = APIRouter()
 
@@ -428,6 +429,34 @@ async def list_models():
 async def list_languages():
     """List supported languages and evaluation status."""
     return get_language_metadata()
+
+
+@router.get("/analytics/dashboard")
+async def analytics_dashboard():
+    """Get analytics dashboard summary."""
+    analytics = get_analytics_service()
+    return analytics.get_dashboard_summary()
+
+
+@router.get("/analytics/trends")
+async def analytics_trends(hours: int = 24):
+    """Get risk trends over time."""
+    analytics = get_analytics_service()
+    return {"trends": analytics.get_risk_trends(hours)}
+
+
+@router.get("/analytics/sources")
+async def analytics_sources():
+    """Get breakdown by audio source type."""
+    analytics = get_analytics_service()
+    return {"sources": analytics.get_source_breakdown()}
+
+
+@router.get("/analytics/models")
+async def analytics_models():
+    """Get model usage statistics."""
+    analytics = get_analytics_service()
+    return {"models": analytics.get_model_usage()}
 
 
 @router.get("/config")
