@@ -95,7 +95,6 @@ contract VoiceIntegrityRegistry {
         Evidence storage e = evidenceRegistry[recordId];
         if (!e.exists) return false;
         valid = (e.evidenceHash == expectedHash);
-        emit EvidenceVerified(recordId, valid, msg.sender);
         return valid;
     }
 

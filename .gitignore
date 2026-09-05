@@ -12,6 +12,7 @@ build/
 dist/
 
 # env files
+.env
 .env.local
 .env.*.local
 
@@ -28,3 +29,4 @@ yarn-error.log*
 next-env.d.ts
 .vercel
 coverage/
+ blockchain/.env

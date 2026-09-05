@@ -10,10 +10,11 @@
     "node": "hardhat node"
   },
   "devDependencies": {
-    "hardhat": "^2.22.0",
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0"
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.0"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
     "ethers": "^6.13.0"
   }
 }

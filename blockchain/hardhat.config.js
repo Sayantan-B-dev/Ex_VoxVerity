@@ -1,4 +1,5 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("dotenv").config();
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -20,7 +21,7 @@ module.exports = {
       chainId: 31337,
     },
     amoy: {
-      url: process.env.BLOCKCHAIN_RPC_URL || "https://rpc-amoy.polygon.technology",
+      url: process.env.BLOCKCHAIN_RPC_URL || "https://polygon-amoy.drpc.org",
       chainId: 80002,
       accounts: process.env.BLOCKCHAIN_PRIVATE_KEY
         ? [process.env.BLOCKCHAIN_PRIVATE_KEY]
