@@ -4,6 +4,7 @@ from app.api.routes import router
 from app.realtime.routes import router as realtime_router
 from app.realtime.signaling import router as signaling_router
 from app.core.config import settings
+from app.core.rate_limit import RateLimitMiddleware
 from app.models.aasist_wrapper import get_aasist
 from app.models.ecapa_wrapper import get_ecapa
 
@@ -14,6 +15,9 @@ app = FastAPI(
     description="Voice integrity analysis and risk scoring service",
     version="0.1.0",
 )
+
+# Security middleware
+app.add_middleware(RateLimitMiddleware)
 
 app.include_router(router, prefix="/v1")
 app.include_router(realtime_router)
