@@ -8,6 +8,7 @@ from app.dsp.human_pattern import analyze_human_pattern
 from app.models.aasist_wrapper import get_aasist
 from app.models.ecapa_wrapper import get_ecapa
 from app.analysis.aggregator import get_aggregator
+from app.risk.engine import get_risk_engine
 
 router = APIRouter()
 
@@ -124,6 +125,15 @@ async def analyze_file(file: UploadFile = File(...)):
         audio_np = np.array(samples, dtype=np.float32)
         aasist_result = aasist.predict(audio_np)
 
+        # Run risk engine
+        risk_engine = get_risk_engine()
+        risk_result = risk_engine.evaluate({
+            "spoof_detection": aasist_result,
+            "human_pattern": human_pattern,
+            "quality_flags": flags,
+            "dsp_metrics": metrics,
+        })
+
         # Aggregate all signals into versioned result
         aggregator = get_aggregator()
         analysis = aggregator.aggregate(
@@ -138,6 +148,7 @@ async def analyze_file(file: UploadFile = File(...)):
         result["human_pattern"] = human_pattern
         result["spoof_detection"] = aasist_result
         result["analysis"] = analysis
+        result["risk"] = risk_result
         result["status"] = "analyzed"
     else:
         result["dsp_metrics"] = None
@@ -209,8 +220,35 @@ async def speaker_verify(
 
 
 @router.post("/risk/evaluate")
-async def risk_evaluate():
-    return {"status": "not_implemented", "message": "Phase 26: Risk engine"}
+async def risk_evaluate(
+    file: UploadFile = File(...),
+    user_id: Optional[str] = None,
+):
+    """Evaluate risk for an audio file."""
+    contents = await file.read()
+    samples = decode_wav_pcm(contents)
+    if samples is None:
+        raise HTTPException(status_code=400, detail="Could not decode audio. Only WAV (PCM) is supported.")
+
+    import numpy as np
+    metrics = compute_metrics(samples)
+    flags = quality_flags(metrics)
+    human_pattern = analyze_human_pattern(metrics)
+
+    aasist = get_aasist()
+    audio_np = np.array(samples, dtype=np.float32)
+    aasist_result = aasist.predict(audio_np)
+
+    # Run risk engine
+    risk_engine = get_risk_engine()
+    risk_result = risk_engine.evaluate({
+        "spoof_detection": aasist_result,
+        "human_pattern": human_pattern,
+        "quality_flags": flags,
+        "dsp_metrics": metrics,
+    })
+
+    return risk_result
 
 
 @router.get("/models")

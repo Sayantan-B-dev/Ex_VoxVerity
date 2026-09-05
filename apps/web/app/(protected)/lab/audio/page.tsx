@@ -62,6 +62,16 @@ interface AnalysisResult {
   metadata: Record<string, string>;
 }
 
+interface RiskResult {
+  score: number;
+  severity: string;
+  recommendation: string;
+  contributing_factors: ContributingFactor[];
+  rule_triggers: string[];
+  policy_version: string;
+  explanation: string;
+}
+
 export default function LabAudioPage() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -122,7 +132,9 @@ export default function LabAudioPage() {
   const dsp = result?.dsp_metrics as DspMetrics | undefined;
   const sd = result?.spoof_detection as SpoofDetectionResult | undefined;
   const analysis = result?.analysis as AnalysisResult | undefined;
+  const risk = result?.risk as RiskResult | undefined;
   const scoreColor = hp ? (hp.score >= 70 ? "var(--color-success)" : hp.score >= 50 ? "var(--color-warning)" : "var(--color-danger)") : "var(--color-text-secondary)";
+  const riskColor = risk ? (risk.score <= 25 ? "var(--color-success)" : risk.score <= 50 ? "var(--color-warning)" : risk.score <= 75 ? "var(--color-danger)" : "var(--color-danger)") : "var(--color-text-secondary)";
 
   return (
     <div>
@@ -394,6 +406,58 @@ export default function LabAudioPage() {
         </div>
       )}
 
+
+      {/* Risk Engine Result */}
+      {risk && (
+        <div className="card" style={{ marginTop: "var(--space-4)" }}>
+          <h3 className="card-title" style={{ marginBottom: "var(--space-2)" }}>
+            Risk Assessment
+          </h3>
+          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", marginBottom: "var(--space-4)", fontStyle: "italic" }}>
+            Deterministic risk scoring from combined signals. Policy v{risk.policy_version}.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
+              <div style={{
+                fontSize: "var(--text-3xl)",
+                fontWeight: "var(--weight-bold)",
+                fontFamily: "var(--font-mono)",
+                color: riskColor,
+              }}>
+                {risk.score}/100
+              </div>
+              <div>
+                <p style={{ fontSize: "var(--text-sm)", fontWeight: "var(--weight-semibold)" }}>
+                  {risk.severity}
+                </p>
+                <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+                  {risk.recommendation}
+                </p>
+              </div>
+            </div>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+              {risk.explanation}
+            </p>
+            {risk.rule_triggers.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+                {risk.rule_triggers.map((trigger) => (
+                  <span key={trigger} style={{
+                    padding: "var(--space-1) var(--space-3)",
+                    borderRadius: "var(--radius-full)",
+                    fontSize: "var(--text-xs)",
+                    fontWeight: "var(--weight-medium)",
+                    background: "var(--color-warning-bg)",
+                    color: "var(--color-warning)",
+                    border: "1px solid var(--color-warning-border)",
+                  }}>
+                    {trigger.replace(/_/g, " ")}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {/* DSP Metrics */}
       {dsp && (
         <div className="card" style={{ marginTop: "var(--space-4)" }}>

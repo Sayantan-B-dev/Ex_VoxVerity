@@ -25,7 +25,7 @@
 - [x] Phase 23: AASIST Evaluation and Calibration
 - [x] Phase 24: Speaker Enrollment and ECAPA-TDNN
 - [x] Phase 25: Analysis Aggregation and Versioning
-- [ ] Phase 26: Risk Engine v1
+- [x] Phase 26: Risk Engine v1
 - [ ] Phase 27: Realtime WebSocket Audio Pipeline
 - [ ] Phase 28: WebRTC Controlled Demo Call
 - [ ] Phase 29: Realtime DSP Dashboard
