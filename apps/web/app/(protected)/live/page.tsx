@@ -54,6 +54,7 @@ export default function LivePage() {
   const sequenceRef = useRef(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const freqCanvasRef = useRef<HTMLCanvasElement>(null);
+  const captureStateRef = useRef<CaptureState>("OFF");
 
   // Audio level monitoring
   useEffect(() => {
@@ -239,6 +240,10 @@ export default function LivePage() {
     });
   }, [riskTrend]);
 
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptRef = useRef(0);
+  const maxReconnectAttempts = 5;
+
   const connectWebSocket = useCallback(() => {
     const aiUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? "http://localhost:8000";
     const wsUrl = aiUrl.replace("http", "ws") + `/v1/realtime/${sessionId}`;
@@ -248,25 +253,46 @@ export default function LivePage() {
 
     ws.onopen = () => {
       setConnected(true);
+      setError("");
+      reconnectAttemptRef.current = 0;
       ws.send(JSON.stringify({ type: "hello", session_id: sessionId }));
       ws.send(JSON.stringify({ type: "start_session", source: "microphone" }));
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = (msgEvent) => {
       try {
-        const data = JSON.parse(event.data);
+        const data = JSON.parse(msgEvent.data);
         handleServerMessage(data);
       } catch (e) {
         console.error("Failed to parse WS message:", e);
       }
     };
 
-    ws.onerror = () => {
-      setError("WebSocket connection error");
+    ws.onerror = (errEvent) => {
+      console.error("WebSocket error:", {
+        url: wsUrl,
+        readyState: ws.readyState,
+        sessionId,
+      });
+      if (reconnectAttemptRef.current === 0) {
+        setError("Cannot reach AI service at " + aiUrl + ". Make sure it is running on port 8000.");
+      }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (closeEvent) => {
       setConnected(false);
+      if (captureStateRef.current === "ACTIVE" && reconnectAttemptRef.current < maxReconnectAttempts) {
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptRef.current), 16000);
+        reconnectAttemptRef.current += 1;
+        setError(`Connection lost. Reconnecting in ${Math.round(delay / 1000)}s (attempt ${reconnectAttemptRef.current}/${maxReconnectAttempts})...`);
+        reconnectTimeoutRef.current = setTimeout(() => {
+          if (captureStateRef.current === "ACTIVE") {
+            connectWebSocket();
+          }
+        }, delay);
+      } else if (reconnectAttemptRef.current >= maxReconnectAttempts) {
+        setError("AI service unavailable after multiple retries. Please restart the AI service and try again.");
+      }
     };
 
     return ws;
@@ -320,7 +346,9 @@ export default function LivePage() {
 
   async function startCapture() {
     setCaptureState("REQUESTING");
+    captureStateRef.current = "REQUESTING";
     setError("");
+    reconnectAttemptRef.current = 0;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -345,6 +373,7 @@ export default function LivePage() {
 
       connectWebSocket();
       setCaptureState("ACTIVE");
+      captureStateRef.current = "ACTIVE";
       chunkIntervalRef.current = setInterval(() => sendAudioChunk(stream), 3000);
 
     } catch (e) {
@@ -390,6 +419,12 @@ export default function LivePage() {
   }
 
   function stopCapture() {
+    captureStateRef.current = "OFF";
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    reconnectAttemptRef.current = 0;
     if (chunkIntervalRef.current) {
       clearInterval(chunkIntervalRef.current);
       chunkIntervalRef.current = null;
@@ -410,6 +445,7 @@ export default function LivePage() {
     setCaptureState("OFF");
     setConnected(false);
     setAudioLevel(0);
+    setError("");
   }
 
   useEffect(() => {

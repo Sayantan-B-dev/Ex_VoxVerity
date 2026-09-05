@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 # Constants
 CHUNK_DURATION_MS = 3000  # 3-second cadence
-MAX_QUEUE_SIZE = 10  # Maximum chunks in queue before marking degraded
+MAX_QUEUE_SIZE = 50  # Maximum chunks in queue before marking degraded
 STALE_CHUNK_TIMEOUT_S = 10  # Mark stale if older than 10s
 
 
@@ -89,7 +89,12 @@ class RealtimeSession:
     def get_next_chunk(self) -> Optional[dict]:
         """Get next chunk from queue for processing."""
         if self.chunk_queue:
-            return self.chunk_queue.pop(0)
+            chunk = self.chunk_queue.pop(0)
+            # Auto-recover from DEGRADED when queue drains
+            if self.state == SessionState.DEGRADED and len(self.chunk_queue) < MAX_QUEUE_SIZE // 2:
+                self.state = SessionState.ACTIVE
+                logger.info(f"Session {self.session_id} recovered from degraded")
+            return chunk
         return None
 
     def add_result(self, result: dict):

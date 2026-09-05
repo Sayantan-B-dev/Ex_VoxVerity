@@ -215,8 +215,12 @@ cd blockchain && npx hardhat run scripts/deploy.js --network amoy
 - **Fix:** Run `npx auth secret` in `apps/web/` and paste the output into `.env.local`
 
 ### Python import errors
-- **Cause:** Virtual environment not activated
-- **Fix:** Activate `.venv` before running uvicorn
+- **Cause:** Virtual environment not activated or dependencies missing
+- **Fix:** Activate `.venv` before running uvicorn, then run `pip install -r requirements.txt`
+
+### `ModuleNotFoundError: No module named 'pydantic_settings'`
+- **Cause:** `pydantic-settings` not installed
+- **Fix:** Run `pip install -r requirements.txt` (or `pip install pydantic-settings`) in the AI service virtual environment
 
 ### "Unsupported provider: provider is not enabled"
 - **Cause:** OAuth provider not configured in Supabase
