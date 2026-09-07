@@ -249,7 +249,13 @@ async def webrtc_signaling(websocket: WebSocket, room_id: str):
                     await _send(other, {"type": "peer_joined", "role": role, "peer_id": peer_id, "peer_name": peer_name})
                     await _send(other, {"type": "call_started", "peer": my})
                     if room.is_complete:
-                        await _send(websocket, {"type": "call_started", "peer": {"id": peer_id, "name": peer_name}})
+                        # Tell the just-joined socket who is ALREADY here,
+                        # not itself (previously echoed its own id/name back).
+                        if websocket == room.caller:
+                            existing = {"id": room.receiver_id, "name": room.receiver_name}
+                        else:
+                            existing = {"id": room.caller_id, "name": room.caller_name}
+                        await _send(websocket, {"type": "call_started", "peer": existing})
 
                 logger.info(f"Peer {peer_id} joined room {room_id} as {role} (state={room.state})")
 

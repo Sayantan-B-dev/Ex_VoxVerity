@@ -69,6 +69,11 @@ export function useCall(
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localRef = useRef<MediaStream | null>(null);
   const remoteRef = useRef<MediaStream | null>(null);
+  // ICE candidates that arrive before the peer connection has a remote
+  // description (the joiner routinely gets these before the offer creates
+  // its pc). Adding them early throws, so buffer and flush once the remote
+  // description is set. Dropping them silently is what caused one-way audio.
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const statusRef = useRef<CallStatus>("idle");
   const isHostRef = useRef(false);
   const callIdRef = useRef<string | undefined>(undefined);
@@ -99,6 +104,7 @@ export function useCall(
     pcRef.current = null;
     localRef.current = null;
     remoteRef.current = null;
+    pendingCandidatesRef.current = [];
     setRemoteStream(null);
     setLocalStream(null);
   }, []);
@@ -167,6 +173,22 @@ export function useCall(
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     wsRef.current?.send(JSON.stringify({ type: "answer", sdp: answer.sdp }));
+    await flushPendingCandidates();
+  }
+
+  /** Add candidates that arrived before the remote description existed. */
+  async function flushPendingCandidates() {
+    const pc = pcRef.current;
+    if (!pc || !pc.remoteDescription) return;
+    const queued = pendingCandidatesRef.current;
+    pendingCandidatesRef.current = [];
+    for (const c of queued) {
+      try {
+        await pc.addIceCandidate(c);
+      } catch {
+        /* stale candidate - ignore */
+      }
+    }
   }
 
   const openSignaling = useCallback(
@@ -210,13 +232,32 @@ export function useCall(
             void handleOffer(msg.sdp as string);
             break;
           case "answer":
-            void pcRef.current?.setRemoteDescription({ type: "answer", sdp: msg.sdp as string });
+            void (async () => {
+              const pc = pcRef.current;
+              if (!pc) return;
+              try {
+                await pc.setRemoteDescription({ type: "answer", sdp: msg.sdp as string });
+              } catch {
+                return;
+              }
+              await flushPendingCandidates();
+            })();
             break;
-          case "ice_candidate":
-            if (msg.candidate) {
-              void pcRef.current?.addIceCandidate(msg.candidate as RTCIceCandidateInit).catch(() => undefined);
+          case "ice_candidate": {
+            const candidate = msg.candidate as RTCIceCandidateInit | undefined;
+            if (!candidate) break;
+            const pc = pcRef.current;
+            if (pc && pc.remoteDescription) {
+              void pc.addIceCandidate(candidate).catch(() => undefined);
+            } else {
+              // Too early - pc or remote description not ready yet. Buffer it
+              // instead of dropping (dropping = one-way or no audio).
+              if (pendingCandidatesRef.current.length < 50) {
+                pendingCandidatesRef.current.push(candidate);
+              }
             }
             break;
+          }
           case "hangup":
           case "peer_left":
             setStatus("ended");
