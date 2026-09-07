@@ -51,26 +51,7 @@ export default function Landing() {
 
   return (
     <div className="h-full overflow-y-auto bg-black text-text-primary">
-      {/* Top bar */}
-      <header className="sticky top-0 z-20 border-b border-line/60 bg-black/70 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2.5">
-            <Hexagon className="size-6 fill-teal/20 text-teal" strokeWidth={2.2} />
-            <span className="text-[16px] font-bold tracking-tight">VOXVERITY</span>
-          </div>
-          <nav className="hidden items-center gap-8 text-[13px] text-text-secondary md:flex">
-            <span className="cursor-pointer transition-colors hover:text-text-primary">Platform</span>
-            <span className="cursor-pointer transition-colors hover:text-text-primary">Detection</span>
-            <span className="cursor-pointer transition-colors hover:text-text-primary">Compliance</span>
-          </nav>
-          <button
-            onClick={signIn}
-            className="rounded-lg border border-line px-4 py-2 text-[13px] font-medium transition-colors hover:border-teal/50 hover:text-teal"
-          >
-            Sign in
-          </button>
-        </div>
-      </header>
+
 
       {/* Hero */}
       <section className="relative overflow-hidden">

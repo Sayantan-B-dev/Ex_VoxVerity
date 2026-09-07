@@ -2,30 +2,37 @@ import { ShieldAlert, MapPin } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Card, Tag } from "@/components/primitives";
 import Sonar from "@/components/viz/Sonar";
-import { threatCampaigns } from "@/lib/demo-data";
+import { getThreatsData } from "@/lib/data";
 import { timeAgo } from "@/lib/format";
 
-export default function ThreatIntelligencePage() {
+export default async function ThreatIntelligencePage() {
+  const { source, campaigns } = await getThreatsData();
+  const maxRisk = Math.max(1, ...campaigns.map((c) => c.risk));
+
   return (
     <div className="animate-fade-in space-y-6">
       <PageHeader
         crumb="Threats"
         title="Threat Intelligence"
-        subtitle="Campaign patterns and indicators across protected channels."
+        subtitle={
+          source === "demo"
+            ? "Campaign patterns and indicators. Showing demo data — connect Supabase for live campaigns."
+            : "Campaign patterns and indicators across protected channels."
+        }
       />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <Card className="flex flex-col items-center justify-center gap-3 p-6">
           <p className="self-start text-[15px] font-semibold">Campaign Pressure</p>
-          <Sonar value={78} />
+          <Sonar value={maxRisk} />
           <p className="text-center text-[12px] leading-relaxed text-text-secondary">
-            Three active campaigns. Synthetic voice cloning is the dominant attack pattern this
+            {campaigns.length} active campaign{campaigns.length === 1 ? "" : "s"}. Synthetic voice cloning is the dominant attack pattern this
             week.
           </p>
         </Card>
 
         <div className="space-y-4 xl:col-span-2">
-          {threatCampaigns.map((c) => (
+          {campaigns.map((c) => (
             <Card key={c.id} className="p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -37,7 +44,7 @@ export default function ThreatIntelligencePage() {
                     </Tag>
                   </div>
                   <p className="mt-1 text-[12px] text-text-secondary">
-                    {c.id} · Attack: {c.attack} · {c.activeSessions} active sessions · last seen{" "}
+                    {typeof c.id === "string" && c.id.length > 8 ? c.id.slice(0, 8) : c.id} · Attack: {c.attack} · {c.activeSessions} active sessions · last seen{" "}
                     {timeAgo(c.lastSeen)}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">

@@ -1,9 +1,10 @@
 import { Plug, Plus } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Card, Tag } from "@/components/primitives";
-import { integrations } from "@/lib/demo-data";
+import { getIntegrationsData } from "@/lib/data";
 
-export default function IntegrationsPage() {
+export default async function IntegrationsPage() {
+  const { source, integrations } = await getIntegrationsData();
   const connected = integrations.filter((i) => i.connected);
   const available = integrations.filter((i) => !i.connected);
 
@@ -12,7 +13,11 @@ export default function IntegrationsPage() {
       <PageHeader
         crumb="Integrations"
         title="Integrations"
-        subtitle="Connect external services to alerts, evidence, and telephony."
+        subtitle={
+          source === "demo"
+            ? "Connect external services to alerts, evidence, and telephony. Showing demo data."
+            : "Connect external services to alerts, evidence, and telephony."
+        }
       />
 
       <Card className="p-6">

@@ -22,7 +22,24 @@ export default function VerificationView({
   requests: VerificationRequest[];
   source?: string;
 }) {
-  const [states, setStates] = useState<Record<string, string>>({});
+  const [states, setStates] = useState<Record<string, string>>(
+    Object.fromEntries(requests.map((r) => [r.id, r.state]))
+  );
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function decide(id: string, status: string) {
+    setBusy(id);
+    try {
+      const res = await fetch(`/api/verification/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) setStates((m) => ({ ...m, [id]: status }));
+    } finally {
+      setBusy(null);
+    }
+  }
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -60,20 +77,23 @@ export default function VerificationView({
                   {pending ? (
                     <>
                       <button
-                        onClick={() => setStates((m) => ({ ...m, [v.id]: "CONFIRMED" }))}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-teal/40 bg-teal/15 px-3.5 py-2 text-[13px] font-medium text-teal transition-colors hover:bg-teal/25"
+                        onClick={() => decide(v.id, "CONFIRMED")}
+                        disabled={busy === v.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-teal/40 bg-teal/15 px-3.5 py-2 text-[13px] font-medium text-teal transition-colors hover:bg-teal/25 disabled:opacity-60"
                       >
                         <Check className="size-4" /> Confirm
                       </button>
                       <button
-                        onClick={() => setStates((m) => ({ ...m, [v.id]: "REJECTED" }))}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-critical/50 bg-critical/15 px-3.5 py-2 text-[13px] font-medium text-critical transition-colors hover:bg-critical/25"
+                        onClick={() => decide(v.id, "REJECTED")}
+                        disabled={busy === v.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-critical/50 bg-critical/15 px-3.5 py-2 text-[13px] font-medium text-critical transition-colors hover:bg-critical/25 disabled:opacity-60"
                       >
                         <X className="size-4" /> Reject
                       </button>
                       <button
-                        onClick={() => setStates((m) => ({ ...m, [v.id]: "ESCALATED" }))}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-elev px-3.5 py-2 text-[13px] font-medium text-text-secondary transition-colors hover:text-text-primary"
+                        onClick={() => decide(v.id, "ESCALATED")}
+                        disabled={busy === v.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-elev px-3.5 py-2 text-[13px] font-medium text-text-secondary transition-colors hover:text-text-primary disabled:opacity-60"
                       >
                         <Phone className="size-4" /> Escalate
                       </button>

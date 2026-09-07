@@ -36,6 +36,8 @@ export default function EvidenceView({
 }) {
   const [query, setQuery] = useState("");
   const [checked, setChecked] = useState<string | null>(null);
+  const [serverResult, setServerResult] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const columns: Column<EvidenceRecord>[] = [
     {
@@ -91,6 +93,41 @@ export default function EvidenceView({
 
   const match = records.find((r) => r.hash === query.trim());
 
+  async function verifyOnServer() {
+    const q = query.trim();
+    if (!q) {
+      setChecked("empty");
+      return;
+    }
+    if (match) {
+      // Server recompute proves manifest → hash integrity (not just local string match).
+      setBusy(true);
+      setServerResult(null);
+      try {
+        const res = await fetch("/api/blockchain/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ evidence_id: match.id }),
+        });
+        const data = await res.json().catch(() => ({}));
+        setServerResult(
+          res.ok
+            ? data.verified
+              ? `✓ Server-verified: manifest re-hashed to ${String(data.recomputed).slice(0, 16)}… (match). Network: ${data.network}.`
+              : "✕ Server recompute mismatch — record may be tampered."
+            : (data.error ?? "Verification failed.")
+        );
+      } catch {
+        setServerResult("Verification request failed.");
+      } finally {
+        setBusy(false);
+      }
+      setChecked("match");
+    } else {
+      setChecked("nomatch");
+    }
+  }
+
   return (
     <div className="animate-fade-in space-y-6">
       <PageHeader
@@ -133,14 +170,18 @@ export default function EvidenceView({
             className="h-10 flex-1 rounded-lg border border-line bg-elev px-3 font-mono text-[13px] text-text-primary outline-none transition-colors placeholder:text-text-disabled focus:border-teal/60"
           />
           <button
-            onClick={() => setChecked(query.trim() ? (match ? "match" : "nomatch") : "empty")}
-            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-teal/40 bg-teal/15 px-5 text-[13px] font-medium text-teal transition-colors hover:bg-teal/25"
+            onClick={verifyOnServer}
+            disabled={busy}
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-teal/40 bg-teal/15 px-5 text-[13px] font-medium text-teal transition-colors hover:bg-teal/25 disabled:opacity-60"
           >
-            Verify
+            {busy ? "Verifying…" : "Verify"}
           </button>
         </div>
         {checked === "match" && (
           <p className="mt-3 text-[12px] text-neon">✓ Hash found in the local registry.</p>
+        )}
+        {serverResult && (
+          <p className="mt-2 font-mono text-[11px] text-text-secondary">{serverResult}</p>
         )}
         {checked === "nomatch" && (
           <p className="mt-3 text-[12px] text-critical">
