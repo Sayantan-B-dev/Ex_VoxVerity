@@ -1,32 +1,35 @@
-"use client";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import { Card } from "@/components/primitives";
+import { Btn, Field, Input, Select } from "@/components/forms";
 
-import { useState } from "react";
-
-export default function ProfileSettingsPage() {
-  const [name, setName] = useState("Demo User");
-  const [email, setEmail] = useState("demo@acme.com");
-  const [saved, setSaved] = useState(false);
-
+export default function SettingsProfilePage() {
   return (
-    <div>
-      <div className="page-header"><h1>Profile Settings</h1></div>
-      <form className="card" style={{ maxWidth: 540, display: "flex", flexDirection: "column", gap: "var(--space-4)" }} onSubmit={(e) => { e.preventDefault(); setSaved(true); }}>
-        <div>
-          <label className="input-label">Full Name</label>
-          <input className="input" value={name} onChange={(e) => { setName(e.target.value); setSaved(false); }} />
+    <div className="animate-fade-in space-y-6">
+      <Link
+        href="/settings"
+        className="inline-flex items-center gap-1.5 text-[13px] text-text-secondary transition-colors hover:text-text-primary"
+      >
+        <ArrowLeft className="size-4" /> Back to Settings
+      </Link>
+      <PageHeader crumb="Settings" title="Profile Settings" subtitle="Your account identity details." />
+      <Card className="max-w-2xl p-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="First Name"><Input defaultValue="Sayantan" /></Field>
+          <Field label="Last Name"><Input defaultValue="Bharati" /></Field>
+          <Field label="Email Address"><Input type="email" defaultValue="sayantan@voxverity.io" /></Field>
+          <Field label="Phone Number"><Input defaultValue="+91 90000 00000" /></Field>
+          <Field label="Department">
+            <Select value="Security Operations" options={["Security Operations", "Fraud", "Compliance", "Engineering"]} />
+          </Field>
+          <Field label="Job Title"><Input defaultValue="Platform Owner" /></Field>
         </div>
-        <div>
-          <label className="input-label">Email</label>
-          <input className="input" type="email" value={email} onChange={(e) => { setEmail(e.target.value); setSaved(false); }} />
+        <div className="mt-5 flex justify-end gap-2">
+          <Btn variant="secondary">Cancel</Btn>
+          <Btn variant="primary">Save Changes</Btn>
         </div>
-        <div>
-          <label className="input-label">Role</label>
-          <input className="input" value="Operator" disabled />
-          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", marginTop: "var(--space-1)" }}>Role is managed by an administrator.</p>
-        </div>
-        <button type="submit" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>Save Changes</button>
-        {saved && <div className="alert alert-success">Profile updated.</div>}
-      </form>
+      </Card>
     </div>
   );
 }

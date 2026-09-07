@@ -1,121 +1,119 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ArrowLeft, ChevronRight, Link2, ScanSearch } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import { Card, Tag } from "@/components/primitives";
+import { getIncidentById } from "@/lib/data";
+import { alerts as demoAlerts, evidenceRecords as demoEvidence } from "@/lib/demo-data";
+import { timeAgo } from "@/lib/format";
 
-const mockIncidents: Record<string, {
-  status: string; session: string; risk: number; severity: string;
-  owner: string; opened: string; scope: string;
-  timeline: { action: string; by: string; time: string }[];
-  evidence: { id: string; hash: string; status: string }[];
-}> = {
-  "1039": {
-    status: "OPEN", session: "#1039", risk: 85, severity: "CRITICAL",
-    owner: "analyst@acme.com", opened: "1 hr ago", scope: "Full session analysis — high synthetic signal, low speaker similarity",
-    timeline: [
-      { action: "Incident created from alert ALT-201", by: "system", time: "1 hr ago" },
-      { action: "Assigned to analyst", by: "admin@acme.com", time: "55 min ago" },
-    ],
-    evidence: [{ id: "EVD-1039", hash: "a1b2c3d4…e5f6", status: "Generated" }],
-  },
-  "1041": {
-    status: "INVESTIGATING", session: "#1041", risk: 62, severity: "HIGH",
-    owner: "analyst@acme.com", opened: "2 hr ago", scope: "Speaker similarity mismatch detected",
-    timeline: [
-      { action: "Incident created from alert ALT-200", by: "system", time: "2 hr ago" },
-      { action: "Investigation started", by: "analyst@acme.com", time: "1 hr ago" },
-    ],
-    evidence: [],
-  },
+const statusTone: Record<string, string> = {
+  OPEN: "Medium",
+  INVESTIGATING: "High",
+  CONTAINED: "High",
+  RESOLVED: "Low",
+  FALSE_POSITIVE: "Low",
 };
 
-function getFallback(id: string) {
-  return {
-    status: "OPEN", session: "—", risk: 0, severity: "LOW",
-    owner: "—", opened: "—", scope: "—",
-    timeline: [] as { action: string; by: string; time: string }[],
-    evidence: [] as { id: string; hash: string; status: string }[],
-  };
-}
-
-export default async function IncidentDetailPage({ params }: { params: Promise<{ incidentId: string }> }) {
+export default async function IncidentDetailPage({
+  params,
+}: {
+  params: Promise<{ incidentId: string }>;
+}) {
   const { incidentId } = await params;
-  const inc = mockIncidents[incidentId] ?? getFallback(incidentId);
+  const incident = await getIncidentById(incidentId);
+  if (!incident) notFound();
+
+  const linkedAlerts = demoAlerts.filter((a) => incident.alertIds.includes(a.id));
+  const linkedEvidence = demoEvidence.filter((e) => incident.evidenceIds.includes(e.id));
 
   return (
-    <div>
-      <div className="page-header">
-        <div>
-          <Link href="/incidents" style={{ fontSize: "var(--text-sm)", color: "var(--color-primary)" }}>← Back to Incidents</Link>
-          <h1 style={{ marginTop: "var(--space-2)" }}>INC-{incidentId}</h1>
-        </div>
-        <div style={{ display: "flex", gap: "var(--space-3)" }}>
-          {inc.status === "OPEN" && <button className="btn btn-primary">Start Investigation</button>}
-          {inc.status === "INVESTIGATING" && <button className="btn btn-primary">Mark Contained</button>}
-          <button className="btn btn-secondary">Generate Evidence</button>
-        </div>
-      </div>
+    <div className="animate-fade-in space-y-6">
+      <Link
+        href="/incidents"
+        className="inline-flex items-center gap-1.5 text-[13px] text-text-secondary transition-colors hover:text-text-primary"
+      >
+        <ArrowLeft className="size-4" /> Back to Incidents
+      </Link>
 
-      <div className="grid grid-4" style={{ marginBottom: "var(--space-6)" }}>
-        <div className="card">
-          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>Status</p>
-          <p style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-semibold)" }}>{inc.status.replace("_", " ")}</p>
-        </div>
-        <div className="card">
-          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>Risk</p>
-          <p className={`risk-score risk-score-${inc.severity.toLowerCase()}`}>{inc.risk}/100</p>
-        </div>
-        <div className="card">
-          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>Owner</p>
-          <p style={{ fontSize: "var(--text-sm)" }}>{inc.owner}</p>
-        </div>
-        <div className="card">
-          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>Opened</p>
-          <p style={{ fontSize: "var(--text-sm)" }}>{inc.opened}</p>
-        </div>
-      </div>
+      <PageHeader
+        crumb="Incidents"
+        title={incident.id}
+        subtitle={`Opened ${timeAgo(incident.opened)} · Owner: ${incident.owner}`}
+        actions={
+          <>
+            <button className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-teal/40 bg-teal/15 px-4 text-[13px] font-medium text-teal transition-colors hover:bg-teal/25">
+              Add Note
+            </button>
+            <button className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-purple/50 bg-purple/15 px-4 text-[13px] font-medium text-purple transition-colors hover:bg-purple/25">
+              Mark Resolved
+            </button>
+          </>
+        }
+      />
 
-      <div className="card" style={{ marginBottom: "var(--space-6)" }}>
-        <h3 className="card-title" style={{ marginBottom: "var(--space-2)" }}>Scope</h3>
-        <p>{inc.scope}</p>
-      </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[17px] font-semibold">Summary</h2>
+            <Tag level={statusTone[incident.status]}>{incident.status}</Tag>
+          </div>
+          <p className="mt-3 text-[13px] font-medium text-text-primary">{incident.scope}</p>
+          <p className="mt-2 text-[13px] leading-relaxed text-text-secondary">{incident.summary}</p>
+          <div className="mt-4 rounded-xl border border-line bg-elev p-4">
+            <p className="text-[11px] uppercase tracking-wide text-text-disabled">Risk Score</p>
+            <p className="mt-1 font-mono text-[22px] font-bold text-text-primary">{incident.risk}/100</p>
+          </div>
+        </Card>
 
-      <div className="grid grid-2">
-        {/* Timeline */}
-        <div className="card">
-          <h3 className="card-title" style={{ marginBottom: "var(--space-4)" }}>Timeline</h3>
-          {inc.timeline.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-              {inc.timeline.map((t, i) => (
-                <div key={i} style={{ display: "flex", gap: "var(--space-3)", fontSize: "var(--text-sm)" }}>
-                  <span style={{ color: "var(--color-text-muted)", minWidth: 80 }}>{t.time}</span>
+        <div className="space-y-6 xl:col-span-2">
+          <Card className="p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <ScanSearch className="size-5 text-teal" />
+              <h2 className="text-[17px] font-semibold">Linked Alerts</h2>
+            </div>
+            <div className="space-y-2">
+              {linkedAlerts.map((a) => (
+                <Link
+                  key={a.id}
+                  href={`/alerts/${a.id}`}
+                  className="flex items-center justify-between rounded-xl border border-line bg-elev p-4 transition-colors hover:border-teal/40"
+                >
                   <div>
-                    <p>{t.action}</p>
-                    <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-xs)" }}>by {t.by}</p>
+                    <p className="text-[14px] font-medium">{a.threat}</p>
+                    <p className="text-[12px] text-text-secondary">{a.id} · {a.caller}</p>
                   </div>
-                </div>
+                  <ChevronRight className="size-4 text-text-disabled" />
+                </Link>
               ))}
+              {linkedAlerts.length === 0 && (
+                <p className="text-[13px] text-text-secondary">No linked alerts.</p>
+              )}
             </div>
-          ) : (
-            <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>No timeline events.</p>
-          )}
-        </div>
+          </Card>
 
-        {/* Evidence */}
-        <div className="card">
-          <h3 className="card-title" style={{ marginBottom: "var(--space-4)" }}>Evidence</h3>
-          {inc.evidence.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-              {inc.evidence.map((e) => (
-                <div key={e.id} style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--text-sm)" }}>
-                  <span>{e.id}</span>
-                  <span style={{ fontFamily: "var(--font-mono)" }}>{e.hash}</span>
-                  <span className="badge badge-success">{e.status}</span>
+          <Card className="p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <Link2 className="size-5 text-teal" />
+              <h2 className="text-[17px] font-semibold">Evidence Packages</h2>
+            </div>
+            <div className="space-y-2">
+              {linkedEvidence.map((e) => (
+                <div key={e.id} className="rounded-xl border border-line bg-elev p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[14px] font-medium">{e.id}</p>
+                    <Tag level={e.chainStatus === "REGISTERED" ? "Low" : "High"}>{e.chainStatus}</Tag>
+                  </div>
+                  <p className="mt-1 font-mono text-[11px] break-all text-text-disabled">{e.hash}</p>
                 </div>
               ))}
+              {linkedEvidence.length === 0 && (
+                <p className="text-[13px] text-text-secondary">No evidence generated yet.</p>
+              )}
             </div>
-          ) : (
-            <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>No evidence generated yet.</p>
-          )}
+          </Card>
         </div>
       </div>
     </div>
   );
-}
+}

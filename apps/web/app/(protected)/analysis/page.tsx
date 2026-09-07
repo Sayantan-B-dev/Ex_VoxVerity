@@ -1,54 +1,94 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
+import { FlaskConical, Upload, ChevronRight } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import { Card, Tag } from "@/components/primitives";
+import DataTable from "@/components/DataTable";
+import type { Column } from "@/components/DataTable";
+import { analysisResults, labAudioFiles } from "@/lib/demo-data";
+import { riskBand, bandTag, timeAgo } from "@/lib/format";
 
-const mockAnalyses = [
-  { id: "AN-401", session: "#1039", risk: 85, severity: "CRITICAL", spoof: "0.78", speaker: "0.31", time: "1 hr ago" },
-  { id: "AN-400", session: "#1041", risk: 62, severity: "HIGH", spoof: "0.62", speaker: "0.74", time: "18 min ago" },
-  { id: "AN-399", session: "#1042", risk: 42, severity: "MEDIUM", spoof: "0.34", speaker: "0.82", time: "2 min ago" },
-  { id: "AN-398", session: "#1038", risk: 18, severity: "LOW", spoof: "0.12", speaker: "0.91", time: "2 hr ago" },
-  { id: "AN-397", session: "#1035", risk: 31, severity: "MEDIUM", spoof: "0.28", speaker: "0.85", time: "3 hr ago" },
+const columns: Column<(typeof analysisResults)[number]>[] = [
+  {
+    key: "id",
+    header: "Analysis",
+    render: (r) => <span className="font-mono text-teal">{r.id}</span>,
+  },
+  {
+    key: "file",
+    header: "Source",
+    render: (r) => {
+      const file = labAudioFiles.find((f) => f.id === r.fileId);
+      return (
+        <div>
+          <p className="font-medium text-text-primary">{file?.name ?? r.sessionId ?? "—"}</p>
+          <p className="text-[11px] text-text-disabled">{timeAgo(r.createdAt)}</p>
+        </div>
+      );
+    },
+  },
+  {
+    key: "synthetic",
+    header: "Synthetic Signal",
+    render: (r) => (
+      <span className={r.syntheticScore >= 50 ? "font-semibold text-critical" : "font-semibold text-teal"}>
+        {r.syntheticScore}%
+      </span>
+    ),
+  },
+  {
+    key: "speaker",
+    header: "Speaker Sim",
+    render: (r) => <span className="text-text-secondary">{r.speakerSimilarity}%</span>,
+  },
+  {
+    key: "risk",
+    header: "Risk",
+    render: (r) => (
+      <span className="flex items-center gap-2">
+        <span className="font-mono font-semibold text-text-primary">{r.risk}</span>
+        <Tag level={bandTag(riskBand(r.risk))}>{bandTag(riskBand(r.risk))}</Tag>
+      </span>
+    ),
+  },
+  {
+    key: "open",
+    header: "",
+    render: (r) => (
+      <Link href={`/analysis/${r.id}`} className="inline-flex items-center text-teal hover:underline">
+        Open <ChevronRight className="size-3.5" />
+      </Link>
+    ),
+  },
 ];
 
 export default function AnalysisPage() {
-  const [filter, setFilter] = useState("all");
-  const filtered = mockAnalyses.filter((a) => filter === "all" || a.severity === filter);
-
   return (
-    <div>
-      <div className="page-header"><h1>Analysis</h1></div>
+    <div className="animate-fade-in space-y-6">
+      <PageHeader
+        crumb="Analysis"
+        title="Analysis Results"
+        subtitle="Deterministic DSP + model analysis of audio files and sessions."
+        actions={
+          <Link
+            href="/lab/audio"
+            className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-teal/40 bg-teal/15 px-4 text-[13px] font-medium text-teal transition-colors hover:bg-teal/25"
+          >
+            <Upload className="size-4" /> Analyze Audio
+          </Link>
+        }
+      />
 
-      <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-6)", flexWrap: "wrap" }}>
-        {["all", "CRITICAL", "HIGH", "MEDIUM", "LOW"].map((f) => (
-          <button key={f} className={`btn btn-sm ${filter === f ? "btn-primary" : "btn-secondary"}`} onClick={() => setFilter(f)}>
-            {f === "all" ? "All" : f}
-          </button>
-        ))}
-      </div>
+      <Card className="p-6">
+        <DataTable columns={columns} rows={analysisResults} />
+      </Card>
 
-      <div className="table-wrapper">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>ID</th><th>Session</th><th>Risk</th><th>Spoof Signal</th><th>Speaker Sim.</th><th>Time</th><th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((a) => (
-              <tr key={a.id}>
-                <td style={{ fontWeight: "var(--weight-medium)" }}>{a.id}</td>
-                <td>{a.session}</td>
-                <td><span className={`risk-score risk-score-${a.severity.toLowerCase()}`} style={{ fontSize: "var(--text-sm)" }}>{a.risk}/100</span></td>
-                <td style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)" }}>{a.spoof}</td>
-                <td style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)" }}>{a.speaker}</td>
-                <td style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>{a.time}</td>
-                <td><Link href={`/analysis/${a.id}`} className="btn btn-ghost btn-sm">View</Link></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Card className="flex items-start gap-3 border-teal/30 bg-teal/10 p-4">
+        <FlaskConical className="size-5 shrink-0 text-teal" />
+        <p className="text-[12px] leading-relaxed text-text-secondary">
+          The Analysis Lab runs the same DSP and model pipeline as live monitoring on controlled
+          audio files — useful for deterministic testing and SIH demonstration repeatability.
+        </p>
+      </Card>
     </div>
   );
 }

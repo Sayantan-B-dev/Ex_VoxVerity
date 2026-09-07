@@ -1,132 +1,90 @@
+"use client";
+
 import Link from "next/link";
+import { useParams } from "next/navigation";
+import { notFound } from "next/navigation";
+import { ArrowLeft, FlaskConical } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import { Card, Tag } from "@/components/primitives";
+import RiskMeter from "@/components/RiskMeter";
+import { analysisResults, labAudioFiles } from "@/lib/demo-data";
+import { riskBand, bandTag, timeAgo } from "@/lib/format";
 
-const mockAnalyses: Record<string, {
-  session: string; risk: number; severity: string;
-  spoof: { score: string; label: string; model: string };
-  speaker: { similarity: string; enrolled: boolean; label: string };
-  dsp: { energy: string; silence: string; spectral: string; pitch: string; zcr: string };
-  signals: { name: string; value: string; contribution: string }[];
-  quality: { clipping: string; silence: string; sampleCount: string; decodeOk: string };
-}> = {
-  "AN-401": {
-    session: "#1039", risk: 85, severity: "CRITICAL",
-    spoof: { score: "0.78", label: "Synthetic voice signal: HIGH", model: "AASIST-L v1.0" },
-    speaker: { similarity: "0.31", enrolled: true, label: "Speaker mismatch" },
-    dsp: { energy: "-18.2 dBFS", silence: "8%", spectral: "Flat (synthetic pattern)", pitch: "142 Hz ± 3.1", zcr: "0.08" },
-    signals: [
-      { name: "Synthetic Spoof Signal", value: "0.78", contribution: "45%" },
-      { name: "Speaker Similarity", value: "0.31", contribution: "25%" },
-      { name: "Acoustic Anomaly", value: "0.65", contribution: "20%" },
-      { name: "Context Risk", value: "0.40", contribution: "10%" },
-    ],
-    quality: { clipping: "0.2%", silence: "8%", sampleCount: "72,000", decodeOk: "Yes" },
-  },
-  "AN-399": {
-    session: "#1042", risk: 42, severity: "MEDIUM",
-    spoof: { score: "0.34", label: "Synthetic voice signal: MEDIUM", model: "AASIST-L v1.0" },
-    speaker: { similarity: "0.82", enrolled: true, label: "Speaker consistent" },
-    dsp: { energy: "-22.1 dBFS", silence: "12%", spectral: "Natural", pitch: "156 Hz ± 8.4", zcr: "0.11" },
-    signals: [
-      { name: "Synthetic Spoof Signal", value: "0.34", contribution: "40%" },
-      { name: "Speaker Similarity", value: "0.82", contribution: "25%" },
-      { name: "Acoustic Anomaly", value: "0.18", contribution: "20%" },
-      { name: "Context Risk", value: "0.10", contribution: "15%" },
-    ],
-    quality: { clipping: "0%", silence: "12%", sampleCount: "48,000", decodeOk: "Yes" },
-  },
-};
+export default function AnalysisDetailPage() {
+  const params = useParams<{ analysisId: string }>();
+  const result = analysisResults.find((r) => r.id === params.analysisId);
+  if (!result) notFound();
 
-function getFallback(id: string) {
-  return {
-    session: "—", risk: 0, severity: "LOW",
-    spoof: { score: "—", label: "No data", model: "—" },
-    speaker: { similarity: "—", enrolled: false, label: "Not enrolled" },
-    dsp: { energy: "—", silence: "—", spectral: "—", pitch: "—", zcr: "—" },
-    signals: [] as { name: string; value: string; contribution: string }[],
-    quality: { clipping: "—", silence: "—", sampleCount: "—", decodeOk: "—" },
-  };
-}
-
-export default async function AnalysisDetailPage({ params }: { params: Promise<{ analysisId: string }> }) {
-  const { analysisId } = await params;
-  const a = mockAnalyses[analysisId] ?? getFallback(analysisId);
+  const file = labAudioFiles.find((f) => f.id === result.fileId);
+  const signals = [
+    { label: "Synthetic Voice Signal", value: result.syntheticScore, color: "#ff3b3b" },
+    { label: "Speaker Similarity", value: result.speakerSimilarity, color: "#35d6c1" },
+    { label: "Acoustic Anomaly", value: result.acousticAnomaly, color: "#ff6b35" },
+    { label: "Prosody Anomaly", value: result.prosodyAnomaly, color: "#ffb800" },
+  ];
+  const dspRows = [
+    ["RMS Energy", `${result.dsp.rms} dBFS`],
+    ["Peak Amplitude", `${result.dsp.peak} dBFS`],
+    ["Zero Crossing Rate", String(result.dsp.zcr)],
+    ["Spectral Centroid", `${result.dsp.spectralCentroid} Hz`],
+    ["Voiced Ratio", `${Math.round(result.dsp.voicedRatio * 100)}%`],
+  ];
 
   return (
-    <div>
-      <div className="page-header">
-        <div>
-          <Link href="/analysis" style={{ fontSize: "var(--text-sm)", color: "var(--color-primary)" }}>← Back to Analysis</Link>
-          <h1 style={{ marginTop: "var(--space-2)" }}>{analysisId}</h1>
-        </div>
-        <span className={`badge badge-${a.severity.toLowerCase()}`}>{a.severity}</span>
-      </div>
+    <div className="animate-fade-in space-y-6">
+      <Link
+        href="/analysis"
+        className="inline-flex items-center gap-1.5 text-[13px] text-text-secondary transition-colors hover:text-text-primary"
+      >
+        <ArrowLeft className="size-4" /> Back to Analysis
+      </Link>
 
-      {/* Risk + Signals */}
-      <div className="grid grid-4" style={{ marginBottom: "var(--space-6)" }}>
-        <div className="card">
-          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>Risk Score</p>
-          <p className={`risk-score risk-score-${a.severity.toLowerCase()}`}>{a.risk}/100</p>
-        </div>
-        <div className="card">
-          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>Spoof Signal</p>
-          <p style={{ fontSize: "var(--text-xl)", fontWeight: "var(--weight-semibold)" }}>{a.spoof.score}</p>
-          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>{a.spoof.model}</p>
-        </div>
-        <div className="card">
-          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>Speaker Similarity</p>
-          <p style={{ fontSize: "var(--text-xl)", fontWeight: "var(--weight-semibold)" }}>{a.speaker.similarity}</p>
-          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>{a.speaker.label}</p>
-        </div>
-        <div className="card">
-          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>Session</p>
-          <p style={{ fontSize: "var(--text-xl)", fontWeight: "var(--weight-semibold)" }}>{a.session}</p>
-        </div>
-      </div>
+      <PageHeader
+        crumb="Analysis"
+        title={result.id}
+        subtitle={`${file?.name ?? "Session"} · ${timeAgo(result.createdAt)}`}
+      />
 
-      <div className="grid grid-2" style={{ marginBottom: "var(--space-6)" }}>
-        {/* Contributing Signals */}
-        <div className="card">
-          <h3 className="card-title" style={{ marginBottom: "var(--space-4)" }}>Contributing Signals</h3>
-          <div className="table-wrapper">
-            <table className="table">
-              <thead><tr><th>Signal</th><th>Value</th><th>Contribution</th></tr></thead>
-              <tbody>
-                {a.signals.map((s) => (
-                  <tr key={s.name}>
-                    <td>{s.name}</td>
-                    <td style={{ fontFamily: "var(--font-mono)" }}>{s.value}</td>
-                    <td>{s.contribution}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Card className="flex flex-col items-center justify-center gap-3 p-6">
+          <p className="self-start text-[15px] font-semibold">Risk Score</p>
+          <RiskMeter value={result.risk} size={200} centerValue={String(result.risk)} centerLabel="risk score" />
+          <Tag level={bandTag(riskBand(result.risk))}>{bandTag(riskBand(result.risk))}</Tag>
+          <p className="text-center text-[12px] text-text-secondary">{result.notes}</p>
+        </Card>
 
-        {/* DSP Metrics */}
-        <div className="card">
-          <h3 className="card-title" style={{ marginBottom: "var(--space-4)" }}>DSP Metrics</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-            {Object.entries(a.dsp).map(([key, value]) => (
-              <div key={key} style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)", textTransform: "capitalize" }}>{key}</span>
-                <span style={{ fontSize: "var(--text-sm)", fontFamily: "var(--font-mono)" }}>{value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Quality */}
-      <div className="card">
-        <h3 className="card-title" style={{ marginBottom: "var(--space-4)" }}>Audio Quality</h3>
-        <div style={{ display: "flex", gap: "var(--space-8)", flexWrap: "wrap" }}>
-          {Object.entries(a.quality).map(([key, value]) => (
-            <div key={key}>
-              <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", textTransform: "capitalize" }}>{key}</p>
-              <p style={{ fontSize: "var(--text-sm)", fontWeight: "var(--weight-medium)" }}>{value}</p>
+        <div className="space-y-6 xl:col-span-2">
+          <Card className="p-6">
+            <p className="mb-4 text-[15px] font-semibold">Detection Signals</p>
+            <div className="space-y-4">
+              {signals.map((s) => (
+                <div key={s.label}>
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-text-secondary">{s.label}</span>
+                    <span className="font-mono text-text-primary">{s.value}%</span>
+                  </div>
+                  <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-line">
+                    <div className="h-full rounded-full" style={{ width: `${s.value}%`, background: s.color }} />
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </Card>
+
+          <Card className="p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <FlaskConical className="size-5 text-teal" />
+              <p className="text-[15px] font-semibold">DSP Metrics</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {dspRows.map(([k, v]) => (
+                <div key={k} className="flex items-center justify-between rounded-xl border border-line bg-elev px-4 py-3">
+                  <span className="text-[12px] text-text-secondary">{k}</span>
+                  <span className="font-mono text-[13px] text-text-primary">{v}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
         </div>
       </div>
     </div>

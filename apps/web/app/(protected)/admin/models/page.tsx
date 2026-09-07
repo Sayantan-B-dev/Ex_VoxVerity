@@ -1,29 +1,39 @@
-const mockModels = [
-  { id: "AASIST-L", name: "Audio Anti-Spoofing", version: "v1.0", license: "MIT", status: "Active", params: "85K" },
-  { id: "ECAPA-TDNN", name: "Speaker Embeddings", version: "v1.0", license: "Apache-2.0", status: "Active", params: "6.2M" },
+import PageHeader from "@/components/PageHeader";
+import { Card, Tag } from "@/components/primitives";
+import DataTable from "@/components/DataTable";
+import type { Column } from "@/components/DataTable";
+import { models } from "@/lib/demo-data";
+
+const statusTone: Record<string, string> = {
+  Active: "Low",
+  Evaluating: "Medium",
+  Retired: "High",
+};
+
+const columns: Column<(typeof models)[number]>[] = [
+  { key: "id", header: "ID", render: (m) => <span className="font-mono text-teal">{m.id}</span> },
+  { key: "name", header: "Model", render: (m) => <span className="font-semibold text-text-primary">{m.name}</span> },
+  { key: "version", header: "Version", render: (m) => <span className="font-mono text-text-secondary">{m.version}</span> },
+  { key: "license", header: "License", render: (m) => <span className="text-text-secondary">{m.license}</span> },
+  { key: "status", header: "Status", render: (m) => <Tag level={statusTone[m.status]}>{m.status}</Tag> },
+  {
+    key: "notes",
+    header: "Evaluation Notes",
+    render: (m) => <span className="max-w-[280px] truncate text-[12px] text-text-secondary">{m.evalNotes}</span>,
+  },
 ];
 
 export default function AdminModelsPage() {
   return (
-    <div>
-      <div className="page-header"><h1>Model Management</h1></div>
-      <div className="table-wrapper">
-        <table className="table">
-          <thead><tr><th>Model</th><th>Name</th><th>Version</th><th>Parameters</th><th>License</th><th>Status</th></tr></thead>
-          <tbody>
-            {mockModels.map((m) => (
-              <tr key={m.id}>
-                <td style={{ fontWeight: "var(--weight-medium)", fontFamily: "var(--font-mono)" }}>{m.id}</td>
-                <td>{m.name}</td>
-                <td>{m.version}</td>
-                <td>{m.params}</td>
-                <td style={{ fontSize: "var(--text-sm)" }}>{m.license}</td>
-                <td><span className="badge badge-success">{m.status}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div className="animate-fade-in space-y-6">
+      <PageHeader
+        crumb="Admin"
+        title="Model Governance"
+        subtitle="Registry of models, versions, licenses, and evaluation notes."
+      />
+      <Card className="p-6">
+        <DataTable columns={columns} rows={models} />
+      </Card>
     </div>
   );
 }

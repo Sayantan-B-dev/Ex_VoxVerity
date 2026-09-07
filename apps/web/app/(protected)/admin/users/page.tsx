@@ -1,33 +1,43 @@
-const mockUsers = [
-  { name: "Alice Admin", email: "alice@acme.com", role: "ADMIN", status: "Active", joined: "Jan 2026" },
-  { name: "Bob Analyst", email: "bob@acme.com", role: "ANALYST", status: "Active", joined: "Feb 2026" },
-  { name: "Carol Operator", email: "carol@acme.com", role: "OPERATOR", status: "Active", joined: "Mar 2026" },
-  { name: "Dave Viewer", email: "dave@acme.com", role: "VIEWER", status: "Invited", joined: "Sep 2026" },
-];
+import PageHeader from "@/components/PageHeader";
+import { Card, Tag } from "@/components/primitives";
+import DataTable from "@/components/DataTable";
+import type { Column } from "@/components/DataTable";
+import { orgUsers } from "@/lib/demo-data";
+import { timeAgo } from "@/lib/format";
 
-const roleBadge: Record<string, string> = { ADMIN: "badge-high", ANALYST: "badge-medium", OPERATOR: "badge-low", VIEWER: "badge-low" };
+const statusTone: Record<string, string> = {
+  Active: "Low",
+  Invited: "Medium",
+  Suspended: "High",
+};
+
+const columns: Column<(typeof orgUsers)[number]>[] = [
+  {
+    key: "name",
+    header: "User",
+    render: (u) => (
+      <div>
+        <p className="font-medium text-text-primary">{u.name}</p>
+        <p className="text-[11px] text-text-disabled">{u.email}</p>
+      </div>
+    ),
+  },
+  { key: "role", header: "Role", render: (u) => <span className="font-mono text-teal">{u.role}</span> },
+  { key: "status", header: "Status", render: (u) => <Tag level={statusTone[u.status]}>{u.status}</Tag> },
+  { key: "active", header: "Last Active", render: (u) => <span className="text-text-secondary">{timeAgo(u.lastActive)}</span> },
+];
 
 export default function AdminUsersPage() {
   return (
-    <div>
-      <div className="page-header"><h1>User Management</h1><button className="btn btn-primary">+ Invite User</button></div>
-      <div className="table-wrapper">
-        <table className="table">
-          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Joined</th><th></th></tr></thead>
-          <tbody>
-            {mockUsers.map((u) => (
-              <tr key={u.email}>
-                <td style={{ fontWeight: "var(--weight-medium)" }}>{u.name}</td>
-                <td>{u.email}</td>
-                <td><span className={`badge ${roleBadge[u.role]}`}>{u.role}</span></td>
-                <td>{u.status}</td>
-                <td style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>{u.joined}</td>
-                <td><button className="btn btn-ghost btn-sm">Edit</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div className="animate-fade-in space-y-6">
+      <PageHeader
+        crumb="Admin"
+        title="Users"
+        subtitle="Organization members and their roles."
+      />
+      <Card className="p-6">
+        <DataTable columns={columns} rows={orgUsers} />
+      </Card>
     </div>
   );
 }

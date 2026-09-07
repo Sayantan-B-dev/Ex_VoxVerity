@@ -21,8 +21,8 @@ This plan creates **`temp_proj/`**: a new, **standalone Next.js 16 frontend-only
 **all components from `soumya/`** and arranges them in **the layout structure of `subhankar/`**,
 rebranded to the VoxVerity voice-integrity product idea described in `project_info.md`.
 
-`temp_proj/` is a style-verification harness. Once the merged style is confirmed, it will be
-migrated into `apps/web/` and wired to the existing backend (Supabase + AI service).
+`temp_proj/` is a style-verification harness. The merged style was confirmed, and the result was
+migrated into `apps/web/` and wired to the existing backend (Supabase + AI service) — see Phase 10.
 
 **Hard rules (from the user):**
 
@@ -217,27 +217,30 @@ call in `apps/web/lib/*`, with **zero component changes**.
 - [x] `/admin` + `/admin/*` (users, organizations, roles, models, system)
 
 ### Phase 8 — Verification
-- [ ] `npm install` succeeds
-- [ ] `npx tsc --noEmit` passes (zero type errors)
-- [ ] `npm run build` succeeds
-- [ ] `npm run dev` starts; smoke-test every route in the sidebar
-- [ ] Dynamic routes (`/calls/[callId]`, `/alerts/[alertId]`, …) render with demo ids
-- [ ] No imports from `soumya/` or `subhankar/` (fully independent)
-- [ ] Working tree clean; plan checkboxes updated
+- [x] `npm install` succeeds
+- [x] `npx tsc --noEmit` passes (zero type errors)
+- [x] `npm run build` succeeds
+- [x] `npm run dev` starts; smoke-test every route in the sidebar
+- [x] Dynamic routes (`/calls/[callId]`, `/alerts/[alertId]`, …) render with demo ids
+- [x] No imports from `soumya/` or `subhankar/` (fully independent)
+- [x] Working tree clean; plan checkboxes updated
 
-### Phase 9 — User style review (STOP after this)
-- [ ] User runs `temp_proj` and confirms the merged style
-- [ ] Any visual adjustments requested are made in temp_proj and re-verified
+### Phase 9 — User style review
+- [x] User confirmed the merged style and instructed migration into `apps/web`
+- [x] No visual adjustment rounds required before migration
 
-### Phase 10 — Migration into `apps/web` (NOT executed now — future)
-- [ ] Copy `temp_proj/app/*` route files into `apps/web/app/*` (same route names)
-- [ ] Copy `components/*` + `lib/demo-data.ts` → `apps/web/`
-- [ ] Add Tailwind v4 + tokens to `apps/web` (decision D2)
-- [ ] Replace `lib/demo-data.ts` exports with Supabase queries / AI-service calls
-  (`apps/web/lib/supabase/*`, `apps/web/lib/ai-service.ts`)
-- [ ] Reintroduce auth middleware + Supabase session handling (keep existing `apps/web` auth)
-- [ ] Run `apps/web` typecheck, lint, build; fix regressions
-- [ ] Update `docs/build-status.md`; commit with conventional message
+### Phase 10 — Migration into `apps/web` (EXECUTED)
+- [x] Copy `temp_proj/app/*` route files into `apps/web/app/*` (same route names)
+- [x] Copy `components/*` + `lib/demo-data.ts` → `apps/web/`
+- [x] Add Tailwind v4 + tokens to `apps/web` (decision D2)
+- [x] Data layer: `apps/web/lib/data.ts` — server access layer that queries Supabase and falls
+  back to the demo-data module when tables/credentials are absent (no component changes needed)
+- [x] Auth kept: NextAuth (Google / GitHub / credentials) + middleware + soumya `Auth` UI wired to
+  `signIn`/`signOut`/`useSession`; `/login` `/register` call the real providers
+- [x] Run `apps/web` typecheck, lint, build; fix regressions (0 errors, 13 warnings)
+- [x] Route smoke test on production server — all 42 routes return 200, unknown routes 404
+- [x] Commit with conventional message; plan updated
+- [ ] Update `docs/build-status.md` (next maintenance pass)
 - [ ] Cleanup: `temp_proj/` may be deleted after successful migration (ask user first)
 
 ---

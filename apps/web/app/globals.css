@@ -1,7 +1,108 @@
-/* VoxVerity Global Styles — Import Chain */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Micro+5&family=Fira+Code:wght@400;500;600&display=swap');
+@import 'tailwindcss';
 
-@import "../styles/variables.css";
-@import "../styles/reset.css";
-@import "../styles/typography.css";
-@import "../styles/layout.css";
-@import "../styles/components.css";
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Fira Code', ui-monospace, monospace;
+  --font-dot: 'Micro 5', 'Fira Code', monospace;
+
+  --color-black: #05070a;
+  --color-surface: #0a0e14;
+  --color-card: #0c1118;
+  --color-elev: #11161f;
+  --color-hover: #161c26;
+  --color-line: #1c2430;
+
+  --color-teal: #35d6c1;
+  --color-teal-dim: #1c6b62;
+  --color-purple: #7c6cff;
+  --color-purple-dim: #4b3f9e;
+  --color-amber: #d9a877;
+  --color-neon: #00d97e;
+  --color-warn: #ffb800;
+  --color-orange: #ff6b35;
+  --color-critical: #ff3b3b;
+
+  --color-text-primary: #f2f5f7;
+  --color-text-secondary: #8a94a6;
+  --color-text-disabled: #5b6472;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-black);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Dot-matrix LED numerals */
+.dot {
+  font-family: var(--font-dot);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 0.9;
+}
+
+@keyframes pulse-ring {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}
+
+@keyframes sonar {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 250ms ease-out both;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+*:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 8px;
+}
+*:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+}

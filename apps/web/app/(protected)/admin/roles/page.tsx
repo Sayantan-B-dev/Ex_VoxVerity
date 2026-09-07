@@ -1,23 +1,35 @@
-const roles = [
-  { name: "Owner", perms: ["Full administration", "Manage billing", "Delete organization"] },
-  { name: "Admin", perms: ["Manage users", "Configure settings", "View audit logs", "Manage integrations"] },
-  { name: "Analyst", perms: ["View alerts", "Manage incidents", "View analytics", "Generate evidence"] },
-  { name: "Operator", perms: ["Start live monitor", "View calls", "Acknowledge alerts", "Perform verification"] },
-  { name: "Viewer", perms: ["Read-only access", "View dashboard"] },
-];
+import PageHeader from "@/components/PageHeader";
+import { Card, Tag } from "@/components/primitives";
+import { roles } from "@/lib/demo-data";
 
 export default function AdminRolesPage() {
   return (
-    <div>
-      <div className="page-header"><h1>Roles &amp; Permissions</h1></div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", maxWidth: 700 }}>
+    <div className="animate-fade-in space-y-6">
+      <PageHeader
+        crumb="Admin"
+        title="Roles"
+        subtitle="Role definitions and their permission sets."
+      />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {roles.map((r) => (
-          <div key={r.name} className="card">
-            <h3 className="card-title" style={{ marginBottom: "var(--space-3)" }}>{r.name}</h3>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
-              {r.perms.map((p) => <span key={p} className="badge badge-low">{p}</span>)}
+          <Card key={r.id} className="p-6">
+            <div className="flex items-center justify-between">
+              <p className="font-mono text-[15px] font-semibold text-teal">{r.name}</p>
+              <Tag level="Medium">{r.id.replace("ROLE-", "")}</Tag>
             </div>
-          </div>
+            <p className="mt-1 text-[13px] text-text-secondary">{r.description}</p>
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {r.permissions.map((p) => (
+                <span
+                  key={p}
+                  className="rounded-md border border-line bg-elev px-2 py-0.5 font-mono text-[11px] text-text-secondary"
+                >
+                  {p}
+                </span>
+              ))}
+            </div>
+          </Card>
         ))}
       </div>
     </div>

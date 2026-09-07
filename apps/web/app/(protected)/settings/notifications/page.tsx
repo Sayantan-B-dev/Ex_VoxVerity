@@ -1,31 +1,50 @@
-"use client";
+import Link from "next/link";
+import { ArrowLeft, Bell } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import { Card } from "@/components/primitives";
+import { Btn, Toggle } from "@/components/forms";
 
-import { useState } from "react";
+const channels = [
+  { l: "In-App Notifications", s: "Show notifications in the dashboard", on: true },
+  { l: "Email Notifications", s: "Send email for critical alerts", on: true },
+  { l: "SMS Notifications (Enterprise)", s: "Send SMS for critical incidents", on: false },
+  { l: "Webhook / API Notifications", s: "Send to external system", on: false },
+];
 
-export default function NotificationSettingsPage() {
-  const [prefs, setPrefs] = useState({ email: true, browser: true, criticalOnly: false });
+export default function SettingsNotificationsPage() {
   return (
-    <div>
-      <div className="page-header"><h1>Notification Settings</h1></div>
-      <div className="card" style={{ maxWidth: 540 }}>
-        <h3 className="card-title" style={{ marginBottom: "var(--space-4)" }}>Alert Delivery</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-          {([
-            ["email", "Email notifications", "Receive alert summaries via email"],
-            ["browser", "Browser notifications", "Get notified in real-time while the app is open"],
-            ["criticalOnly", "Critical alerts only", "Only notify for CRITICAL severity alerts"],
-          ] as const).map(([key, label, desc]) => (
-            <label key={key} style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", cursor: "pointer" }}>
-              <input type="checkbox" checked={prefs[key]} onChange={(e) => setPrefs((p) => ({ ...p, [key]: e.target.checked }))} style={{ marginTop: 4 }} />
+    <div className="animate-fade-in space-y-6">
+      <Link
+        href="/settings"
+        className="inline-flex items-center gap-1.5 text-[13px] text-text-secondary transition-colors hover:text-text-primary"
+      >
+        <ArrowLeft className="size-4" /> Back to Settings
+      </Link>
+      <PageHeader crumb="Settings" title="Notification Settings" subtitle="Choose how and when you are notified." />
+
+      <Card className="max-w-2xl p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Bell className="size-5 text-teal" />
+          <h2 className="text-[17px] font-semibold">Channel Preferences</h2>
+        </div>
+        <div className="-my-1">
+          {channels.map((c) => (
+            <div
+              key={c.l}
+              className="flex flex-col gap-3 border-b border-line py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between"
+            >
               <div>
-                <p style={{ fontWeight: "var(--weight-medium)" }}>{label}</p>
-                <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>{desc}</p>
+                <p className="text-[14px] font-medium">{c.l}</p>
+                <p className="text-[12px] text-text-secondary">{c.s}</p>
               </div>
-            </label>
+              <Toggle defaultOn={c.on} />
+            </div>
           ))}
         </div>
-        <button className="btn btn-primary" style={{ marginTop: "var(--space-6)" }}>Save Preferences</button>
-      </div>
+        <div className="mt-5 flex justify-end">
+          <Btn variant="primary">Save Changes</Btn>
+        </div>
+      </Card>
     </div>
   );
 }

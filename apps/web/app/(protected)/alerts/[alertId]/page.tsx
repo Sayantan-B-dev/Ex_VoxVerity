@@ -1,94 +1,145 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ArrowLeft, AlertTriangle, Check, ChevronRight, Link2 } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import { Card, Tag, TickMeter } from "@/components/primitives";
+import { getAlertById } from "@/lib/data";
+import { calls as demoCalls, incidents as demoIncidents, evidenceRecords as demoEvidence } from "@/lib/demo-data";
+import { riskBand, bandTag, timeAgo } from "@/lib/format";
+import { acknowledgeAlert } from "@/app/(protected)/alerts/actions";
 
-const mockAlerts: Record<string, {
-  severity: string; session: string; message: string; time: string;
-  acknowledged: boolean; incident: string | null;
-  signals: { name: string; value: string }[];
-  recommendedAction: string;
-  notes: string;
-}> = {
-  "ALT-201": {
-    severity: "CRITICAL", session: "#1039", message: "Risk threshold 85/100 exceeded", time: "1 hr ago",
-    acknowledged: false, incident: "INC-1039",
-    signals: [{ name: "Synthetic Spoof Signal", value: "0.78" }, { name: "Speaker Similarity", value: "0.31" }, { name: "Acoustic Anomaly", value: "0.65" }],
-    recommendedAction: "Escalate to security analyst for manual review",
-    notes: "",
-  },
-  "ALT-200": {
-    severity: "HIGH", session: "#1041", message: "Synthetic voice signal detected", time: "18 min ago",
-    acknowledged: false, incident: null,
-    signals: [{ name: "Synthetic Spoof Signal", value: "0.62" }, { name: "Speaker Similarity", value: "0.74" }],
-    recommendedAction: "Request secondary verification",
-    notes: "",
-  },
-};
-
-function getFallback(id: string) {
-  return {
-    severity: "LOW", session: "—", message: "Alert details", time: "—",
-    acknowledged: false, incident: null,
-    signals: [] as { name: string; value: string }[],
-    recommendedAction: "Review", notes: "",
-  };
-}
-
-export default async function AlertDetailPage({ params }: { params: Promise<{ alertId: string }> }) {
+export default async function AlertDetailPage({
+  params,
+}: {
+  params: Promise<{ alertId: string }>;
+}) {
   const { alertId } = await params;
-  const alert = mockAlerts[alertId] ?? getFallback(alertId);
+  const alert = await getAlertById(alertId);
+  if (!alert) notFound();
+
+  const call = demoCalls.find((c) => c.id === alert.callId);
+  const incident = demoIncidents.find((i) => i.id === alert.incidentId);
+  const evidence = demoEvidence.find((e) => e.callId === alert.callId);
+
+  async function onAcknowledge() {
+    "use server";
+    await acknowledgeAlert(alertId);
+  }
 
   return (
-    <div>
-      <div className="page-header">
-        <div>
-          <Link href="/alerts" style={{ fontSize: "var(--text-sm)", color: "var(--color-primary)" }}>← Back to Alerts</Link>
-          <h1 style={{ marginTop: "var(--space-2)" }}>{alertId}</h1>
-        </div>
-        <div style={{ display: "flex", gap: "var(--space-3)" }}>
-          {!alert.acknowledged && <button className="btn btn-primary">Acknowledge</button>}
-          {!alert.incident && <button className="btn btn-secondary">Create Incident</button>}
-        </div>
-      </div>
+    <div className="animate-fade-in space-y-6">
+      <Link
+        href="/alerts"
+        className="inline-flex items-center gap-1.5 text-[13px] text-text-secondary transition-colors hover:text-text-primary"
+      >
+        <ArrowLeft className="size-4" /> Back to Alerts
+      </Link>
 
-      <div className="grid grid-2" style={{ marginBottom: "var(--space-6)" }}>
-        <div className="card">
-          <h3 className="card-title" style={{ marginBottom: "var(--space-4)" }}>Alert Info</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-            {[
-              ["Severity", alert.severity],
-              ["Session", alert.session],
-              ["Time", alert.time],
-              ["Status", alert.acknowledged ? "Acknowledged" : "Open"],
-              ["Incident", alert.incident ?? "None"],
-            ].map(([label, value]) => (
-              <div key={label} style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>{label}</span>
-                <span style={{ fontSize: "var(--text-sm)" }}>{value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+      <PageHeader
+        crumb="Alerts"
+        title={alert.threat}
+        subtitle={`${alert.id} · ${timeAgo(alert.time)} · ${alert.caller}`}
+        actions={
+          <>
+            <form action={onAcknowledge}>
+              <button
+                type="submit"
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-teal/40 bg-teal/15 px-4 text-[13px] font-medium text-teal transition-colors hover:bg-teal/25"
+              >
+                <Check className="size-4" /> Acknowledge
+              </button>
+            </form>
+            <button className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-line bg-elev px-4 text-[13px] font-medium text-text-secondary transition-colors hover:text-text-primary">
+              Escalate
+            </button>
+            <button className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-purple/50 bg-purple/15 px-4 text-[13px] font-medium text-purple transition-colors hover:bg-purple/25">
+              Open Incident
+            </button>
+          </>
+        }
+      />
 
-        <div className="card">
-          <h3 className="card-title" style={{ marginBottom: "var(--space-4)" }}>Contributing Signals</h3>
-          {alert.signals.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-              {alert.signals.map((s) => (
-                <div key={s.name} style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: "var(--text-sm)" }}>{s.name}</span>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)" }}>{s.value}</span>
-                </div>
-              ))}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        {/* Main alert card */}
+        <Card className="p-6 xl:col-span-2">
+          <div className="mb-4 flex items-start gap-3">
+            <div
+              className={`grid size-12 shrink-0 place-items-center rounded-xl ${
+                alert.severity === "CRITICAL" ? "bg-critical/15 text-critical" : "bg-orange/15 text-orange"
+              }`}
+            >
+              <AlertTriangle className="size-6" />
             </div>
-          ) : (
-            <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>No signal data available.</p>
+            <div>
+              <div className="flex items-center gap-2">
+                <Tag level={bandTag(riskBand(alert.risk))}>{bandTag(riskBand(alert.risk))}</Tag>
+                <span
+                  className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+                    alert.status === "Escalated" ? "border-purple/50 text-purple" : "border-orange/50 text-orange"
+                  }`}
+                >
+                  {alert.status}
+                </span>
+              </div>
+              <p className="mt-2 text-[13px] leading-relaxed text-text-secondary">{alert.description}</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-line bg-elev p-4">
+            <div className="flex items-center justify-between text-[12px] text-text-secondary">
+              <span>Risk Score</span>
+              <span className="dot text-[16px] text-text-primary">{alert.risk}/100</span>
+            </div>
+            <div className="mt-2">
+              <TickMeter value={alert.risk} color={alert.risk >= 76 ? "#ff3b3b" : "#ff6b35"} />
+            </div>
+            <p className="mt-3 text-[11px] text-text-disabled">
+              Contributing signals: synthetic voice · speaker similarity · prosody — engine
+              risk-engine@3.2.0
+            </p>
+          </div>
+        </Card>
+
+        {/* Context */}
+        <div className="space-y-4">
+          {call && (
+            <Link href={`/calls/${call.id}`} className="block">
+              <Card className="flex items-center justify-between p-5 transition-colors hover:border-teal/40">
+                <div>
+                  <p className="text-[12px] text-text-disabled">Linked Call</p>
+                  <p className="mt-0.5 text-[14px] font-semibold">{call.id}</p>
+                  <p className="text-[12px] text-text-secondary">{call.caller}</p>
+                </div>
+                <ChevronRight className="size-4 text-text-disabled" />
+              </Card>
+            </Link>
+          )}
+          {incident && (
+            <Link href={`/incidents/${incident.id}`} className="block">
+              <Card className="flex items-center justify-between p-5 transition-colors hover:border-teal/40">
+                <div>
+                  <p className="text-[12px] text-text-disabled">Linked Incident</p>
+                  <p className="mt-0.5 text-[14px] font-semibold">{incident.id}</p>
+                  <p className="text-[12px] text-text-secondary">{incident.status}</p>
+                </div>
+                <ChevronRight className="size-4 text-text-disabled" />
+              </Card>
+            </Link>
+          )}
+          {evidence && (
+            <Card className="p-5">
+              <div className="flex items-center gap-2">
+                <Link2 className="size-4 text-teal" />
+                <p className="text-[12px] text-text-disabled">Evidence Package</p>
+              </div>
+              <p className="mt-2 font-mono text-[11px] break-all text-text-secondary">{evidence.hash}</p>
+              <p className="mt-2 text-[11px] text-text-disabled">
+                {evidence.algorithm} · {evidence.chainStatus} · {evidence.network}
+              </p>
+            </Card>
           )}
         </div>
       </div>
-
-      <div className="card">
-        <h3 className="card-title" style={{ marginBottom: "var(--space-4)" }}>Recommended Action</h3>
-        <p>{alert.recommendedAction}</p>
-      </div>
     </div>
   );
-}
+}
