@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CircleDot, ShieldQuestion, TriangleAlert, Mic, Square } from "lucide-react";
+import { CircleDot, Loader2, ShieldQuestion, TriangleAlert, Mic, Square, Table } from "lucide-react";
 import { Card } from "./primitives";
 import RiskMeter from "./RiskMeter";
 import Waveform from "./Waveform";
@@ -36,7 +36,7 @@ function MetricCard({
   );
 }
 
-function CircularProgress({ value, color }: { value: number; color: string }) {
+function CircularProgress({ value, color, empty }: { value: number; color: string; empty?: boolean }) {
   const r = 34;
   const c = 2 * Math.PI * r;
   return (
@@ -48,44 +48,72 @@ function CircularProgress({ value, color }: { value: number; color: string }) {
           cy="48"
           r={r}
           fill="none"
-          stroke={color}
+          stroke={empty ? "#2d3b54" : color}
           strokeWidth={8}
           strokeLinecap="round"
           strokeDasharray={c}
-          strokeDashoffset={c - (value / 100) * c}
+          strokeDashoffset={empty ? c : c - (Math.max(0, Math.min(100, value)) / 100) * c}
           style={{ transition: "stroke-dashoffset 800ms ease" }}
         />
       </svg>
-      <span className="absolute font-mono text-[20px] font-bold">{value}%</span>
+      <span className="absolute font-mono text-[20px] font-bold">{empty ? "—" : `${Math.round(value)}%`}</span>
     </div>
   );
+}
+
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("en-US", { hour12: false });
 }
 
 export default function LiveMonitoring({
   session,
   autoStart,
   onChunk,
+  remoteStream,
+  subjectName,
 }: {
   session?: LiveSession;
-  /** Start mic capture automatically on mount (caller side of a live call). */
+  /** Start capture automatically on mount (creator side of a live call). */
   autoStart?: boolean;
   /** Fired per analyzed 3s chunk (server write-back in the caller flow). */
   onChunk?: (msg: Record<string, unknown>) => void;
+  /** Peer audio (the person who joined) — analyze their voice, not this browser's mic. */
+  remoteStream?: MediaStream | null;
+  /** Display name of the person whose voice is being analyzed. */
+  subjectName?: string;
 }) {
   const duration = useDuration(session?.durationSec ?? 0);
-  const acoustic = [0.4, 0.6, 0.9, 0.5, 0.95, 0.3, 0.85, 0.45];
-  const live = useRealtimeMic({ source: "microphone", onResult: onChunk });
+  const isRemote = Boolean(remoteStream);
+  const subjectLabel = subjectName ?? (isRemote ? "the other person" : undefined);
+  const live = useRealtimeMic({
+    source: isRemote ? "remote_call_audio" : "microphone",
+    stream: remoteStream,
+    onResult: onChunk,
+  });
 
+  // Auto-start once the peer's audio actually arrives over WebRTC.
   useEffect(() => {
-    if (autoStart && live.state === "idle") {
+    if (autoStart && live.state === "idle" && (!isRemote || remoteStream)) {
       live.start();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoStart]);
+  }, [autoStart, remoteStream]);
   const rtAlerts = useSupabaseTable("alerts");
-  const isLive = live.state === "live" && live.latest;
-  const risk = isLive ? live.latest!.risk : session?.risk ?? 0;
-  const severity = isLive ? live.latest!.severity : session?.riskLevel ?? "LOW";
+  const isLive = live.state === "live" && live.latest !== null;
+  const latest = live.latest;
+  const risk = isLive ? latest.risk : session?.risk ?? 0;
+  const severity = isLive ? latest.severity : session?.riskLevel ?? "LOW";
+
+  // Real per-signal values from the latest analyzed chunk.
+  const spoofScore = isLive ? latest.spoofScore : undefined; // 0-100 bona fide
+  const spoofLabel = isLive ? latest.spoofLabel : session?.syntheticLabel ?? undefined;
+  const spoofHeuristic = isLive ? latest.spoofFallback : false;
+  const humanScore = isLive ? latest.humanScore : undefined; // 0-100 naturalness
+  const humanDesc = isLive ? latest.humanDesc : undefined;
+  const acoustic = isLive ? latest.acousticAnomaly : undefined; // 0-100 anomaly
+  const acousticHistory = live.chunks
+    .slice(-8)
+    .map((c) => (c.acousticAnomaly ?? 0) / 100);
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -110,14 +138,22 @@ export default function LiveMonitoring({
           </div>
           <div>
             <h1 className="text-[24px] font-bold tracking-tight sm:text-[28px]">
-              {isLive ? "Live microphone capture" : session?.caller ?? "No active session"}
+              {isLive && isRemote
+                ? `Analyzing ${subjectLabel}'s voice`
+                : isLive
+                  ? "Live microphone capture"
+                  : session?.caller ?? "No active session"}
             </h1>
             <p className="font-mono text-[13px] text-text-secondary">
-              {isLive
-                ? `session ${live.sessionId?.slice(0, 8)} · microphone · 16kHz`
-                : session?.number
-                  ? `${session.number} · ${session.context ?? ""}`
-                  : "Start live capture to stream caller audio for 3s-chunk analysis"}
+              {isLive && isRemote
+                ? `session ${live.sessionId?.slice(0, 8)} · ${subjectLabel} over WebRTC · 16kHz`
+                : isLive
+                  ? `session ${live.sessionId?.slice(0, 8)} · microphone · 16kHz`
+                  : session?.number
+                    ? `${session.number} · ${session.context ?? ""}`
+                    : isRemote
+                      ? "Waiting for the other person's audio stream to arrive…"
+                      : "Start live capture to stream microphone audio for 3s-chunk analysis"}
             </p>
           </div>
         </div>
@@ -133,18 +169,22 @@ export default function LiveMonitoring({
         </div>
       </Card>
 
-      {/* Live capture controls — real mic → AI-service WebSocket */}
+      {/* Live capture controls — analyzed audio (mic or peer stream) → AI-service WebSocket */}
       <Card className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[14px] font-semibold">Realtime capture</p>
+          <p className="text-[14px] font-semibold">{isRemote ? "Realtime voice analysis" : "Realtime capture"}</p>
           <p className="text-[12px] text-text-secondary">
             {live.state === "live"
-              ? `Streaming chunk #${live.latest?.sequence} · avg risk ${live.avgRisk} · ${live.chunks.length} chunks analyzed`
+              ? `Streaming ${isRemote ? `${subjectLabel}'s voice` : "your microphone"} · chunk #${latest?.sequence} · avg risk ${live.avgRisk} · ${live.chunks.length} chunks analyzed`
               : live.state === "connecting"
-                ? "Requesting microphone and opening AI-service WebSocket…"
+                ? isRemote
+                  ? "Opening AI-service WebSocket for the other person's voice…"
+                  : "Requesting microphone and opening AI-service WebSocket…"
                 : live.state === "error"
                   ? (live.error ?? "Capture failed")
-                  : "Start your microphone to stream caller audio to the AI service and see live risk."}
+                  : isRemote
+                    ? "Waiting for the other person's audio stream to arrive…"
+                    : "Start your microphone to stream audio to the AI service and see live risk."}
           </p>
           {rtAlerts.connected && (
             <p className="mt-1 font-mono text-[11px] text-teal">supabase realtime: connected (alerts)</p>
@@ -161,14 +201,18 @@ export default function LiveMonitoring({
               onClick={live.stop}
               className="inline-flex items-center gap-2 rounded-lg border border-critical/50 px-4 py-2 text-[13px] font-medium text-critical transition-colors hover:bg-critical/10"
             >
-              <Square className="size-4" /> Stop capture
+              <Square className="size-4" /> Stop analysis
             </button>
+          ) : isRemote && !remoteStream ? (
+            <span className="inline-flex items-center gap-2 rounded-lg border border-line px-4 py-2 text-[12px] text-text-secondary">
+              <Loader2 className="size-3.5 animate-spin text-teal" /> waiting for remote audio…
+            </span>
           ) : (
             <button
               onClick={live.start}
               className="inline-flex items-center gap-2 rounded-lg bg-teal px-4 py-2 text-[13px] font-semibold text-black transition-transform hover:scale-[1.02]"
             >
-              <Mic className="size-4" /> Start live capture
+              <Mic className="size-4" /> {isRemote ? "Start analysis" : "Start live capture"}
             </button>
           )}
         </div>
@@ -211,7 +255,7 @@ export default function LiveMonitoring({
           </p>
           {isLive && (
             <p className="font-mono text-[11px] text-text-secondary">
-              {live.chunks.length} live chunks · avg {live.avgRisk}
+              {live.chunks.length} live chunks · avg {live.avgRisk} · last {risk}/100
             </p>
           )}
         </Card>
@@ -222,10 +266,11 @@ export default function LiveMonitoring({
             <div className="mb-3 flex items-center justify-between">
               <p className="text-[15px] font-semibold">Live Waveform</p>
               <span className="flex items-center gap-1.5 font-mono text-[12px] text-teal">
-                <CircleDot className="size-3.5" /> {isLive ? "streaming live mic" : "idle"} · 16kHz
+                <CircleDot className="size-3.5" />{" "}
+                {isLive ? (isRemote ? `streaming ${subjectLabel}'s voice` : "streaming live mic") : "idle"} · 16kHz
               </span>
             </div>
-            <Waveform live={isLive ? live.chunks.map((c) => c.risk / 100) : undefined} />
+            <Waveform samples={live.waveform} live={isLive} />
           </Card>
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -234,42 +279,54 @@ export default function LiveMonitoring({
               hint="Anti-spoofing model score for this voice"
             >
               <div className="mb-2 font-mono text-[32px] font-bold text-critical">
-                {isLive ? live.latest!.risk : session?.syntheticProbability ?? 0}%
+                {spoofScore != null ? `${100 - spoofScore}%` : session?.syntheticProbability ?? 0}
               </div>
               <div className="h-2.5 w-full overflow-hidden rounded-full bg-elev/60">
                 <div
                   className="h-full rounded-full bg-critical"
-                  style={{ width: `${isLive ? live.latest!.risk : session?.syntheticProbability ?? 0}%` }}
+                  style={{ width: `${spoofScore != null ? 100 - spoofScore : session?.syntheticProbability ?? 0}%` }}
                 />
               </div>
               <p className="mt-2 text-[11px] text-text-disabled">
-                Label: {session?.syntheticLabel ?? "UNCERTAIN"} · model aasist-l@1.4.0
+                Label: {spoofLabel ?? "UNCERTAIN"} · model aasist-l@1.4.0
+                {spoofHeuristic ? " · heuristic mode (weights not loaded)" : ""}
               </p>
             </MetricCard>
 
             <MetricCard title="Speaker Similarity" hint="Match to known speaker profile">
               <div className="flex items-center justify-between">
-                <CircularProgress value={session?.speakerSimilarity ?? 0} color={bandTone("HIGH")} />
+                <CircularProgress value={session?.speakerSimilarity ?? 0} color={bandTone("HIGH")} empty={!session?.speakerSimilarity} />
                 <p className="max-w-[9rem] text-right text-[12px] text-text-secondary">
-                  Below the 80% trust threshold — flagged as mismatch.
+                  {session?.speakerSimilarity
+                    ? session.speakerSimilarity < 0.8
+                      ? "Below the 80% trust threshold — flagged as mismatch."
+                      : "Matches the enrolled speaker profile."
+                    : "No enrolled speaker reference — enroll a voiceprint in Profile to compare."}
                 </p>
               </div>
             </MetricCard>
 
             <MetricCard title="Acoustic Anomaly" hint="Abnormal acoustic patterns detected">
               <div className="flex h-24 items-end gap-2">
-                {(isLive ? live.chunks.slice(-8).map((c) => c.risk / 100) : acoustic).map((h, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 rounded-t"
-                    style={{
-                      height: `${Math.max(8, h * 100)}%`,
-                      background: h > 0.8 ? "#ff3b3b" : "#00d97e",
-                      transition: "height 300ms ease",
-                    }}
-                  />
-                ))}
+                {acousticHistory.length
+                  ? acousticHistory.map((h, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 rounded-t"
+                        style={{
+                          height: `${Math.max(6, h * 100)}%`,
+                          background: h > 0.6 ? "#ff3b3b" : "#00d97e",
+                          transition: "height 300ms ease",
+                        }}
+                      />
+                    ))
+                  : Array.from({ length: 8 }).map((_, i) => (
+                      <div key={i} className="flex-1 rounded-t bg-elev/60" style={{ height: "6%" }} />
+                    ))}
               </div>
+              <p className="mt-2 text-[11px] text-text-disabled">
+                {acoustic != null ? `Anomaly ${acoustic}/100 · last ${live.chunks.length} chunks` : "Waiting for the first chunk…"}
+              </p>
             </MetricCard>
 
             <MetricCard title="Prosody Anomaly" hint="Pitch, rhythm & stress pattern analysis">
@@ -279,10 +336,10 @@ export default function LiveMonitoring({
                 </div>
                 <div>
                   <p className="font-mono text-[32px] font-bold leading-none text-warn">
-                    {session?.prosodyAnomaly ?? 0}
+                    {humanScore != null ? 100 - humanScore : session?.prosodyAnomaly ?? 0}
                   </p>
                   <p className="mt-1 text-[12px] text-text-secondary">
-                    Elevated — unnatural cadence detected
+                    {humanDesc ?? "Waiting for acoustic analysis…"}
                   </p>
                 </div>
               </div>
@@ -291,13 +348,68 @@ export default function LiveMonitoring({
         </div>
       </div>
 
+      {/* All chunks in detail */}
+      <Card className="p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Table className="size-5 text-teal" />
+          <h2 className="text-[17px] font-semibold">Chunk analysis detail</h2>
+          <span className="ml-auto font-mono text-[11px] text-text-secondary">{live.chunks.length} chunks</span>
+        </div>
+        {live.chunks.length === 0 ? (
+          <p className="text-[12px] text-text-secondary">
+            No chunks analyzed yet — start live capture to see per-3s analysis.
+          </p>
+        ) : (
+          <div className="max-h-80 overflow-auto rounded-lg border border-line">
+            <table className="w-full text-left text-[12px]">
+              <thead className="sticky top-0 bg-elev text-[10px] uppercase tracking-wider text-text-secondary">
+                <tr>
+                  <th className="px-3 py-2">#</th>
+                  <th className="px-3 py-2">Time</th>
+                  <th className="px-3 py-2">Risk</th>
+                  <th className="px-3 py-2">Spoof (bona fide)</th>
+                  <th className="px-3 py-2">Acoustic</th>
+                  <th className="px-3 py-2">Human pattern</th>
+                  <th className="px-3 py-2">RMS</th>
+                  <th className="px-3 py-2">Centroid</th>
+                  <th className="px-3 py-2">Latency</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...live.chunks].reverse().map((c) => (
+                  <tr key={c.sequence} className="border-t border-line/50 font-mono">
+                    <td className="px-3 py-1.5 text-text-secondary">{c.sequence}</td>
+                    <td className="px-3 py-1.5 text-text-secondary">{fmtTime(c.at)}</td>
+                    <td className="px-3 py-1.5">
+                      <span
+                        className={
+                          c.risk >= 51 ? "font-semibold text-critical" : c.risk >= 26 ? "text-warn" : "text-neon"
+                        }
+                      >
+                        {c.risk}
+                      </span>
+                    </td>
+                    <td className="px-3 py-1.5">{c.spoofScore != null ? `${c.spoofScore}%` : "—"}</td>
+                    <td className="px-3 py-1.5">{c.acousticAnomaly != null ? `${c.acousticAnomaly}` : "—"}</td>
+                    <td className="px-3 py-1.5">{c.humanScore != null ? `${c.humanScore}%` : "—"}</td>
+                    <td className="px-3 py-1.5">{c.rms != null ? c.rms.toFixed(3) : "—"}</td>
+                    <td className="px-3 py-1.5">{c.spectralCentroid != null ? `${Math.round(c.spectralCentroid)} Hz` : "—"}</td>
+                    <td className="px-3 py-1.5">{c.latencyMs != null ? `${c.latencyMs} ms` : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
       {/* Session health footer */}
       <Card className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
         {[
           { label: "Session", value: isLive ? "ACTIVE" : session?.sessionState ?? "IDLE" },
           { label: "Chunk Latency", value: live.latencyMs != null ? `${live.latencyMs}ms` : `${session?.chunkLatencyMs ?? 0}ms` },
-          { label: "Queue Depth", value: String(session?.queueDepth ?? 0) },
-          { label: "Chunk Sequence", value: isLive ? String(live.latest?.sequence ?? 0) : String(session?.chunkSequence ?? 0) },
+          { label: "Chunks Analyzed", value: String(isLive ? live.chunks.length : session?.chunkSequence ?? 0) },
+          { label: "Chunk Sequence", value: isLive ? String(latest?.sequence ?? 0) : String(session?.chunkSequence ?? 0) },
         ].map((m) => (
           <div key={m.label}>
             <p className="text-[11px] uppercase tracking-wide text-text-disabled">{m.label}</p>

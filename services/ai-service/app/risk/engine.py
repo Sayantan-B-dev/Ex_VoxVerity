@@ -101,9 +101,11 @@ class RiskEngine:
 
         # ── Spoof Detection Signal ──
         spoof = signals.get("spoof_detection")
-        if spoof and not spoof.get("fallback", True):
+        if spoof and spoof.get("normalized_score") is not None:
             spoof_score = spoof.get("normalized_score", 50)
-            # Higher spoof score = more bona fide = lower risk
+            # Higher spoof score = more bona fide = lower risk.
+            # The heuristic fallback is real DSP analysis too, so it counts
+            # (tagged source="heuristic" so the UI can label it honestly).
             spoof_risk = 100 - spoof_score
             weighted = spoof_risk * weights["spoof_detection"]
             base_risk = base_risk * (1 - weights["spoof_detection"]) + weighted
@@ -114,6 +116,7 @@ class RiskEngine:
                 "version": spoof.get("version", "N/A"),
                 "score": spoof_score,
                 "severity_label": spoof.get("severity_label", "UNCERTAIN"),
+                "source": "heuristic" if spoof.get("fallback", False) else "model",
                 "weight": weights["spoof_detection"],
             })
             if spoof_score < 30:
@@ -221,6 +224,7 @@ class RiskEngine:
             "quality_flags": quality,
             "explanation": explanation,
             "adjustments": risk_adjustments,
+            "acoustic_anomaly": acoustic_score,
         }
 
     def _compute_acoustic_anomaly(self, dsp: dict, quality: dict) -> Optional[float]:

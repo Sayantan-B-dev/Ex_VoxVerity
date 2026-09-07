@@ -1,37 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
-const COUNT = 64;
+const COUNT = 96;
 
-export default function Waveform({ live }: { live?: number[] }) {
-  const [bars, setBars] = useState<number[]>(() =>
-    Array.from({ length: COUNT }, () => 0.3),
-  );
-
-  // Real risk levels drive the bars directly (no extra render cycle).
+/**
+ * Real-amplitude waveform. `samples` is a rolling buffer of 0..1 mic
+ * amplitudes (RMS per ~64ms frame) from the capture pipeline. When no samples
+ * exist the bar sits on a flat baseline — no fabricated animation.
+ */
+export default function Waveform({ samples, live }: { samples?: number[]; live?: boolean }) {
   const rendered = useMemo(() => {
-    if (live && live.length) {
+    if (samples && samples.length) {
+      // Map the rolling buffer onto the bar count, keeping the most recent.
       return Array.from({ length: COUNT }, (_, i) => {
-        const v = live[i % live.length] ?? 0.3;
-        return 0.12 + Math.min(1, v) * 0.88;
+        const idx = samples.length - COUNT + i;
+        const v = idx >= 0 ? samples[idx] ?? 0 : 0;
+        return 0.06 + Math.min(1, v) * 0.9;
       });
     }
-    return bars;
-  }, [live, bars]);
-
-  useEffect(() => {
-    if (live && live.length) return; // live mode: no animation timer
-    const id = setInterval(() => {
-      setBars((prev) =>
-        prev.map((_, i) => {
-          const wave = Math.sin(Date.now() / 220 + i / 3) * 0.5 + 0.5;
-          return 0.12 + wave * (0.4 + Math.random() * 0.55);
-        }),
-      );
-    }, 90);
-    return () => clearInterval(id);
-  }, [live]);
+    return Array.from({ length: COUNT }, () => 0.06);
+  }, [samples]);
 
   return (
     <div className="relative flex h-[120px] items-center gap-[3px] overflow-hidden rounded-lg bg-[repeating-linear-gradient(90deg,transparent,transparent_23px,rgba(255,255,255,0.03)_24px)] px-4">
@@ -41,7 +30,9 @@ export default function Waveform({ live }: { live?: number[] }) {
           className="flex-1 rounded-full"
           style={{
             height: `${h * 100}%`,
-            background: "linear-gradient(180deg,#33b1ff,#0099ff)",
+            background: live
+              ? "linear-gradient(180deg,#33b1ff,#0099ff)"
+              : "linear-gradient(180deg,#33b1ff55,#0099ff33)",
             transition: "height 90ms linear",
           }}
         />

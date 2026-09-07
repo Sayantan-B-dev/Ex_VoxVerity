@@ -33,8 +33,10 @@ const RTC_CONFIG: RTCConfiguration = {
  *
  * The room code is the access control — the code lives on the calls row and
  * call.id (a UUID) is the WebRTC signaling room id, so both parties reach the
- * same signaling room. Only the CALLER's microphone is ever sent for AI
- * analysis; the receiver's mic only feeds the peer call and is never chunked.
+ * same signaling room. Both mics feed the peer call. The CREATOR (caller) has
+ * the dashboard, and it analyzes the JOINED person's voice — the joined
+ * person's audio arrives at the creator as the remote WebRTC stream, which the
+ * dashboard chunks to the AI service. The creator's own mic is never analyzed.
  */
 export function useCall(self: { id: string; name: string } | null | undefined) {
   const selfId = self?.id;
@@ -46,6 +48,7 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
   const [roomCode, setRoomCode] = useState<string | undefined>();
   const [callId, setCallId] = useState<string | undefined>();
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [muted, setMuted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -55,6 +58,7 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
   const statusRef = useRef<CallStatus>("idle");
   const isCallerRef = useRef(false);
   const callIdRef = useRef<string | undefined>(undefined);
+  const mutedRef = useRef(false);
 
   statusRef.current = status;
   isCallerRef.current = isCaller;
@@ -91,6 +95,8 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
     setIsCaller(false);
     setRoomCode(undefined);
     setCallId(undefined);
+    setMuted(false);
+    mutedRef.current = false;
     setError(null);
   }, [cleanup]);
 
@@ -260,6 +266,21 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
     }
   }
 
+  /** Mute/unmute your own microphone for the peer (both caller and receiver). */
+  function toggleMute(): boolean {
+    const next = !mutedRef.current;
+    mutedRef.current = next;
+    setMuted(next);
+    try {
+      localRef.current?.getAudioTracks().forEach((t) => {
+        t.enabled = !next;
+      });
+    } catch {
+      /* noop */
+    }
+    return next;
+  }
+
   async function hangup() {
     try {
       wsRef.current?.send(JSON.stringify({ type: "hangup" }));
@@ -288,6 +309,8 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
     createRoom,
     joinRoom,
     hangup,
+    toggleMute,
+    muted,
     reset,
   };
 }

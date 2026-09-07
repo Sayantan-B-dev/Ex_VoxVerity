@@ -291,6 +291,7 @@ async def _analyze_chunk(chunk: dict, source: str) -> dict:
         "quality_flags": flags,
         "human_pattern": human_pattern,
         "spoof_detection": spoof_result,
+        "acoustic_anomaly": risk_result.get("acoustic_anomaly"),
         "risk": risk_result,
         "source": source,
     }

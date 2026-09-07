@@ -39,6 +39,7 @@ export interface RiskResult {
   model_versions: Record<string, unknown>;
   quality_flags: Record<string, unknown>;
   explanation: string;
+  acoustic_anomaly?: number | null;
 }
 
 const WEIGHTS = {
@@ -107,8 +108,8 @@ export function evaluateRisk(signals: RiskSignals): RiskResult {
   const modelVersions: Record<string, unknown> = {};
 
   const spoof = signals.spoof_detection;
-  if (spoof && !spoof.fallback) {
-    const spoofScore = spoof.normalized_score ?? 50;
+  if (spoof && spoof.normalized_score != null) {
+    const spoofScore = spoof.normalized_score;
     const spoofRisk = 100 - spoofScore;
     base = base * (1 - WEIGHTS.spoof_detection) + spoofRisk * WEIGHTS.spoof_detection;
     adjustments.push(`spoof_detection: ${spoofScore}/100 -> risk ${spoofRisk.toFixed(1)}`);
@@ -118,6 +119,7 @@ export function evaluateRisk(signals: RiskSignals): RiskResult {
       version: spoof.version ?? "N/A",
       score: spoofScore,
       severity_label: spoof.severity_label ?? "UNCERTAIN",
+      source: spoof.fallback ? "heuristic" : "model",
       weight: WEIGHTS.spoof_detection,
     });
     modelVersions.spoof_detection = { model: spoof.model ?? "AASIST-L", version: spoof.version ?? "N/A" };
@@ -170,6 +172,8 @@ export function evaluateRisk(signals: RiskSignals): RiskResult {
     if (acoustic > 70) ruleTriggers.push("ACOUSTIC_ANOMALY_DETECTED");
   }
 
+  const acousticAnomaly = acoustic;
+
   if (spk?.match) {
     base += MITIGATION.verified_speaker_similarity_bonus;
     adjustments.push(`speaker_match_mitigation: ${MITIGATION.verified_speaker_similarity_bonus}`);
@@ -209,6 +213,7 @@ export function evaluateRisk(signals: RiskSignals): RiskResult {
     model_versions: modelVersions,
     quality_flags: quality as Record<string, unknown>,
     explanation: parts.join(" "),
+    acoustic_anomaly: acousticAnomaly ?? null,
     // adjustments is informational for debugging; kept out of the typed surface
-  } as RiskResult & { adjustments?: string[] };
+  } as RiskResult & { adjustments?: string[]; acoustic_anomaly?: number | null };
 }

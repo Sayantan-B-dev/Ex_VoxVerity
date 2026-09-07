@@ -6,6 +6,8 @@ import {
   Check,
   Copy,
   Loader2,
+  Mic,
+  MicOff,
   Phone,
   PhoneOff,
   Radio,
@@ -43,8 +45,9 @@ export default function LivePage() {
   const [joinCode, setJoinCode] = useState("");
   const [copied, setCopied] = useState(false);
 
-  // Keep the hidden audio element bound to the remote (caller) stream — the
-  // receiver hears the caller; the receiver's own mic is never analyzed.
+  // Keep the hidden audio element bound to the remote stream — the creator
+  // hears the person who joined. That same remote stream is what the creator's
+  // dashboard analyzes (the joined person's voice, not the creator's own mic).
   useEffect(() => {
     if (audioRef.current && call.remoteStream) audioRef.current.srcObject = call.remoteStream;
   }, [call.remoteStream]);
@@ -59,7 +62,8 @@ export default function LivePage() {
     }).catch(() => undefined);
   }, [selfId, call.status]);
 
-  // Every analyzed 3s chunk from the CALLER's mic → server-side risk write-back.
+  // Every analyzed 3s chunk of the JOINED person's voice (received over WebRTC)
+  // → server-side risk write-back.
   const onChunk = (msg: Record<string, unknown>) => {
     const callId = callIdRef.current;
     if (!callId) return;
@@ -95,14 +99,16 @@ export default function LivePage() {
             <Radio className="size-6 text-teal" /> Live Monitor
           </h1>
           <p className="text-[13px] text-text-secondary">
-            Protected browser-to-browser calls. Create a room, share the code, and the caller's
-            voice is integrity-checked in real time.
+            Protected browser-to-browser calls. Create a room, share the code, and the person who
+            joins gets their voice integrity-checked in real time on your dashboard.
           </p>
         </div>
         {call.status === "active" && (
           <span className="inline-flex items-center gap-2 rounded-full bg-neon/12 px-3 py-1.5 font-mono text-[12px] font-semibold text-neon">
             <span className="size-2 animate-pulse rounded-full bg-neon" />
-            {call.isCaller ? "YOUR VOICE IS BEING ANALYZED" : `CALL WITH ${(call.peer?.name ?? "").toUpperCase()}`} · {formatDuration(elapsed)}
+            {call.isCaller
+              ? `ANALYZING ${(call.peer?.name ?? "THE OTHER PERSON").toUpperCase()}'S VOICE`
+              : "YOUR VOICE IS BEING ANALYZED"} · {formatDuration(elapsed)}
           </span>
         )}
       </div>
@@ -226,23 +232,42 @@ export default function LivePage() {
               </p>
               <p className="font-mono text-[12px] text-text-secondary">
                 {call.isCaller
-                  ? "Your voice streams to the AI service in 3s chunks — the receiver's voice is not analyzed."
-                  : "Hearing the caller's voice — your microphone is only used for the call, never analyzed."}
+                  ? `Analyzing ${call.peer?.name ?? "the other person"}'s voice in 3s chunks — your own mic only feeds the call, never analyzed.`
+                  : "Your voice is being analyzed by the room creator in 3s chunks — your mic also feeds the call audio."}
               </p>
             </div>
           </div>
-          <button
-            onClick={call.hangup}
-            className="inline-flex items-center gap-2 rounded-lg border border-critical/50 px-4 py-2 text-[13px] font-medium text-critical transition-colors hover:bg-critical/10"
-          >
-            <PhoneOff className="size-4" /> Hang up
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={call.toggleMute}
+              className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-[13px] font-medium transition-colors ${
+                call.muted
+                  ? "border-warn/60 bg-warn/15 text-warn hover:bg-warn/25"
+                  : "border-line bg-elev text-text-primary hover:border-white/25"
+              }`}
+            >
+              {call.muted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+              {call.muted ? "Unmute mic" : "Mute mic"}
+            </button>
+            <button
+              onClick={call.hangup}
+              className="inline-flex items-center gap-2 rounded-lg border border-critical/50 px-4 py-2 text-[13px] font-medium text-critical transition-colors hover:bg-critical/10"
+            >
+              <PhoneOff className="size-4" /> Hang up
+            </button>
+          </div>
         </Card>
       )}
 
-      {/* Caller-only analysis — only the caller's mic is chunked to the server */}
+      {/* Creator-side analysis — analyzes the JOINED person's voice (remote
+          WebRTC stream), never the creator's own microphone. */}
       {call.isCaller && call.status === "active" && (
-        <LiveMonitoring autoStart onChunk={onChunk} />
+        <LiveMonitoring
+          autoStart
+          remoteStream={call.remoteStream}
+          subjectName={call.peer?.name}
+          onChunk={onChunk}
+        />
       )}
 
       {/* Who's online */}

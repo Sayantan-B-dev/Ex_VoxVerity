@@ -14,10 +14,11 @@ import urllib.request
 import zipfile
 import io
 
-# HuggingFace model URLs
-MODEL_URL = "https://huggingface.co/SpeechAntiSpoofingBenchmarks/AASIST-L/resolve/main/model/AASIST_L_64k.pth"
+# HuggingFace model URLs — the wrapper runs the official ONNX export
+# (onnxruntime), so this downloads aasist-l.onnx.
+MODEL_URL = "https://huggingface.co/SpeechAntiSpoofingBenchmarks/AASIST-L/resolve/main/aasist-l.onnx"
 MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "model_artifacts")
-MODEL_PATH = os.path.join(MODEL_DIR, "aasist_l.pth")
+MODEL_PATH = os.path.join(MODEL_DIR, "aasist-l.onnx")
 
 
 def download_model():
@@ -29,7 +30,7 @@ def download_model():
         print("Delete it first if you want to re-download.")
         return True
 
-    print(f"Downloading AASIST-L model from HuggingFace...")
+    print(f"Downloading AASIST-L ONNX model from HuggingFace...")
     print(f"URL: {MODEL_URL}")
     print(f"Destination: {MODEL_PATH}")
 

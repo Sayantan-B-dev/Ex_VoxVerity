@@ -65,7 +65,9 @@ export async function registerEvidenceOnChain(
     return { ok: false, status: "not_configured", message: "BLOCKCHAIN_RPC_URL / BLOCKCHAIN_PRIVATE_KEY / VOICE_REGISTRY_ADDRESS not set" };
   }
   try {
-    const provider = new JsonRpcProvider(cfg.rpcUrl);
+    // staticNetwork: true skips network detection so an unreachable RPC fails
+    // fast instead of retrying forever (the "failed to detect network" spam).
+    const provider = new JsonRpcProvider(cfg.rpcUrl, undefined, { staticNetwork: true });
     const wallet = new Wallet(cfg.privateKey!, provider);
     const contract = new Contract(cfg.contractAddress!, ABI, wallet);
     const createdAtUnix = Math.floor(createdAt.getTime() / 1000);
@@ -103,7 +105,7 @@ export async function verifyEvidenceOnChain(
     return { ok: false, status: "not_configured", message: "Blockchain not configured" };
   }
   try {
-    const provider = new JsonRpcProvider(cfg.rpcUrl);
+    const provider = new JsonRpcProvider(cfg.rpcUrl, undefined, { staticNetwork: true });
     const contract = new Contract(cfg.contractAddress!, ABI, provider);
     const valid = await contract.verifyEvidence(toBytes32(recordId), toBytes32(expectedHash));
     return { ok: true, status: "verified", valid: Boolean(valid) };

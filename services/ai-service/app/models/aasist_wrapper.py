@@ -1,11 +1,13 @@
 """AASIST-L Model Wrapper for VoxVerity.
 
-Integrates the AASIST-L audio anti-spoofing model.
-Model card: https://huggingface.co/SpeechAntiSpoofingBenchmarks/AASIST-L
-License: MIT
+Runs the official AASIST-L anti-spoofing model (ONNX export from
+https://huggingface.co/SpeechAntiSpoofingBenchmarks/AASIST-L) through
+onnxruntime. Input: `wav` (batch, 64600) float32 at 16 kHz → output:
+`logits` (batch, 2) where class 1 = bona fide (higher = more natural).
 
-The model operates on raw speech waveform (64,600 samples at 16 kHz ≈ 4.04 s).
-Higher output score = more likely bona fide (not spoofed).
+When the ONNX model file or onnxruntime is unavailable, predict() falls back
+to a DSP-feature heuristic so the pipeline keeps working (labeled
+fallback=True).
 
 IMPORTANT: This is a model signal, not an absolute fraud verdict.
 The UI must label it as "model score" or "spoof signal", not "probability".
@@ -30,163 +32,84 @@ MODEL_SOURCE = "https://huggingface.co/SpeechAntiSpoofingBenchmarks/AASIST-L"
 
 
 class AASISTWrapper:
-    """Wrapper for AASIST-L audio anti-spoofing model.
-
-    Provides a simple interface for running inference on audio chunks.
-    Falls back to heuristic scoring if the model is not loaded.
-    """
+    """Wrapper for the AASIST-L anti-spoofing model (ONNX runtime)."""
 
     def __init__(self):
-        self.model = None
-        self.device = "cpu"
+        self.session = None
         self._loaded = False
         self._load_error: Optional[str] = None
         self._calibration: Optional[dict] = None
         self._load_calibration()
 
     def load(self, model_path: Optional[str] = None) -> bool:
-        """Load the AASIST-L model from a checkpoint file.
+        """Load the AASIST-L ONNX model via onnxruntime.
 
         Args:
-            model_path: Path to the .pth checkpoint file.
-                       Defaults to model_artifacts/aasist_l.pth
-
-        Returns:
-            True if model loaded successfully, False otherwise.
+            model_path: Path to the .onnx export. Defaults to
+                        model_artifacts/aasist-l.onnx
         """
         if self._loaded:
             return True
 
         try:
-            import torch
+            import onnxruntime as ort
 
             if model_path is None:
                 model_path = os.path.join(
                     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                     "model_artifacts",
-                    "aasist_l.pth",
+                    "aasist-l.onnx",
                 )
 
             if not os.path.exists(model_path):
-                self._load_error = f"Model checkpoint not found: {model_path}"
+                self._load_error = f"AASIST-L ONNX model not found: {model_path}"
                 logger.warning(self._load_error)
                 return False
 
-            # Load the AASIST-L model architecture
-            self.model = self._build_model()
-            checkpoint = torch.load(model_path, map_location=self.device, weights_only=True)
-
-            # Handle different checkpoint formats
-            if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
-                self.model.load_state_dict(checkpoint["state_dict"])
-            elif isinstance(checkpoint, dict) and "model" in checkpoint:
-                self.model.load_state_dict(checkpoint["model"])
-            else:
-                self.model.load_state_dict(checkpoint)
-
-            self.model.to(self.device)
-            self.model.eval()
+            self.session = ort.InferenceSession(
+                model_path,
+                providers=["CPUExecutionProvider"],
+            )
             self._loaded = True
-            logger.info(f"AASIST-L model loaded from {model_path}")
+            logger.info(f"AASIST-L model loaded from {model_path} (onnxruntime)")
             return True
 
         except ImportError as e:
-            self._load_error = f"PyTorch not installed: {e}"
+            self._load_error = f"onnxruntime not installed: {e}"
             logger.warning(self._load_error)
             return False
         except Exception as e:
-            self._load_error = f"Failed to load AASIST-L model: {e}"
+            self._load_error = f"Failed to load AASIST-L ONNX model: {e}"
             logger.error(self._load_error)
             return False
 
-    def _build_model(self):
-        """Build the AASIST-L model architecture.
-
-        This is a simplified implementation based on the AASIST-L paper:
-        "AASIST: Audio Anti-Spoofing using Integrated Spectro-Temporal
-        Graph Attention" (2022).
-
-        The actual checkpoint from HuggingFace contains the full architecture.
-        This serves as a fallback/placeholder for when the checkpoint is
-        available but we need to instantiate the model class.
-        """
-        import torch
-        import torch.nn as nn
-
-        class AASISTL(nn.Module):
-            """AASIST-L model architecture (simplified)."""
-
-            def __init__(self, input_dim=1, hidden_dim=128, num_classes=2):
-                super().__init__()
-                # Feature extractor
-                self.conv1 = nn.Conv1d(input_dim, hidden_dim, kernel_size=5, stride=2, padding=2)
-                self.bn1 = nn.BatchNorm1d(hidden_dim)
-                self.conv2 = nn.Conv1d(hidden_dim, hidden_dim, kernel_size=5, stride=2, padding=2)
-                self.bn2 = nn.BatchNorm1d(hidden_dim)
-                self.conv3 = nn.Conv1d(hidden_dim, hidden_dim, kernel_size=5, stride=2, padding=2)
-                self.bn3 = nn.BatchNorm1d(hidden_dim)
-
-                # Temporal attention
-                self.attention = nn.MultiheadAttention(hidden_dim, num_heads=4, batch_first=True)
-
-                # Classifier
-                self.pool = nn.AdaptiveAvgPool1d(1)
-                self.fc = nn.Linear(hidden_dim, num_classes)
-
-            def forward(self, x):
-                # x: (batch, 1, samples)
-                x = torch.relu(self.bn1(self.conv1(x)))
-                x = torch.relu(self.bn2(self.conv2(x)))
-                x = torch.relu(self.bn3(self.conv3(x)))
-
-                # Reshape for attention: (batch, features, time) -> (batch, time, features)
-                x = x.permute(0, 2, 1)
-                x, _ = self.attention(x, x, x)
-
-                # Pool and classify
-                x = x.permute(0, 2, 1)
-                x = self.pool(x).squeeze(-1)
-                return self.fc(x)
-
-        return AASISTL()
-
     def predict(self, audio: np.ndarray) -> dict:
-        """Run inference on audio samples.
-
-        Args:
-            audio: 1D numpy array of float32 samples at 16 kHz.
+        """Run AASIST-L inference on audio samples (16 kHz float32).
 
         Returns:
             {
                 "model": "AASIST-L",
                 "version": "v1.0",
-                "score": float,          # Higher = more likely bona fide
-                "confidence": float,     # 0-1 confidence in the score
-                "loaded": bool,          # Whether model was used
-                "fallback": bool,        # Whether heuristic fallback was used
+                "score": float,          # 0-1 bona fide (higher = more natural)
+                "confidence": float,     # max softmax probability
+                "loaded": bool,          # whether the real model was used
+                "fallback": bool,        # whether heuristic fallback was used
                 "error": str | None,
             }
         """
-        if not self._loaded or self.model is None:
+        if not self._loaded or self.session is None:
             return self._heuristic_fallback(audio)
 
         try:
-            import torch
+            x = self._prepare_audio(audio)
+            logits = self.session.run(None, {"wav": x})[0]  # (1, 2)
 
-            # Normalize audio to model window
-            audio_tensor = self._prepare_audio(audio)
+            # Softmax → class 1 is the bona fide class.
+            exp = np.exp(logits - np.max(logits, axis=1, keepdims=True))
+            probs = exp / exp.sum(axis=1, keepdims=True)
+            bona_fide_score = float(probs[0, 1])
+            confidence = float(np.max(probs[0]))
 
-            # Run inference
-            with torch.no_grad():
-                output = self.model(audio_tensor)
-                probabilities = torch.softmax(output, dim=-1)
-
-                # AASIST-L: higher score = more bona fide
-                # output[:, 1] is the bona fide class
-                bona_fide_score = probabilities[0, 1].item()
-                confidence = max(probabilities[0]).item()
-
-            # Normalize score using calibration
             normalization = self.normalize_score(bona_fide_score)
 
             return {
@@ -215,42 +138,20 @@ class AASISTWrapper:
                 "error": str(e),
             }
 
-    def _prepare_audio(self, audio: np.ndarray) -> "torch.Tensor":
-        """Prepare audio for model input.
-
-        - Resample to 16 kHz if needed
-        - Pad or truncate to MODEL_WINDOW_SAMPLES
-        - Convert to tensor with batch and channel dimensions
-        """
-        import torch
-
-        # Ensure float32
+    def _prepare_audio(self, audio: np.ndarray) -> "np.ndarray":
+        """Pad/truncate to MODEL_WINDOW_SAMPLES and shape (1, 64600)."""
         if audio.dtype != np.float32:
             audio = audio.astype(np.float32)
 
-        # Truncate or pad to model window
         if len(audio) > MODEL_WINDOW_SAMPLES:
-            # Use the most recent window (rolling context)
-            audio = audio[-MODEL_WINDOW_SAMPLES:]
+            audio = audio[-MODEL_WINDOW_SAMPLES:]  # most recent context
         elif len(audio) < MODEL_WINDOW_SAMPLES:
-            # Pad with zeros
             audio = np.pad(audio, (0, MODEL_WINDOW_SAMPLES - len(audio)), mode="constant")
 
-        # Convert to tensor: (1, 1, samples)
-        tensor = torch.from_numpy(audio).unsqueeze(0).unsqueeze(0)
-        return tensor.to(self.device)
+        return audio.reshape(1, -1)
 
     def _heuristic_fallback(self, audio: np.ndarray) -> dict:
-        """Provide a DSP-feature-based heuristic score when model is not loaded.
-
-        Uses actual audio characteristics to estimate spoof likelihood:
-        - ZCR: natural speech has varied ZCR, synthetic often too regular
-        - Spectral centroid: synthetic speech often has shifted centroid
-        - Crest factor: natural speech has higher crest factor
-        - Silence ratio: natural speech has more pauses
-        - Clipping: clipped audio is suspicious
-        - Energy variation: natural speech has more dynamic range
-        - Spectral flatness: synthetic speech tends to be flatter
+        """DSP-feature heuristic when the model is not available.
 
         Score = bona fide likelihood (higher = more likely natural).
         """
@@ -269,8 +170,6 @@ class AASISTWrapper:
 
         n = len(audio)
 
-        # --- Compute real DSP features ---
-
         # 1. RMS energy
         rms = math.sqrt(float(np.mean(audio ** 2)))
 
@@ -287,23 +186,14 @@ class AASISTWrapper:
         zcr_mean = float(np.mean(zcr_values)) if zcr_values else 0.0
         zcr_std = float(np.std(zcr_values)) if zcr_values else 0.0
 
-        # 4. Spectral centroid (simplified)
-        n_fft = min(n, 16000)  # 1 second window
+        # 4. Spectral centroid (vectorized numpy FFT)
+        n_fft = min(n, 16000)
         if n_fft >= 2:
-            max_k = min(n_fft // 2, 512)
-            weighted_sum = 0.0
-            magnitude_sum = 0.0
-            for k in range(1, max_k):
-                real_part = 0.0
-                imag_part = 0.0
-                for i in range(min(n, n_fft)):
-                    angle = 2 * math.pi * k * i / n_fft
-                    real_part += audio[i] * math.cos(angle)
-                    imag_part -= audio[i] * math.sin(angle)
-                mag = math.sqrt(real_part * real_part + imag_part * imag_part)
-                freq = k * 16000 / n_fft
-                weighted_sum += freq * mag
-                magnitude_sum += mag
+            frame = audio[:n_fft]
+            magnitude = np.abs(np.fft.rfft(frame))
+            freqs = np.fft.rfftfreq(n_fft, d=1.0 / 16000)
+            magnitude_sum = float(magnitude[1:].sum())
+            weighted_sum = float((freqs[1:] * magnitude[1:]).sum())
             spectral_centroid = weighted_sum / magnitude_sum if magnitude_sum > 0 else 0.0
         else:
             spectral_centroid = 0.0
@@ -328,7 +218,7 @@ class AASISTWrapper:
         clipped = sum(1 for s in audio if abs(float(s)) >= clip_threshold)
         clipping_ratio = clipped / n if n > 0 else 0.0
 
-        # 8. Frame energy variation (natural speech is more dynamic)
+        # 8. Frame energy variation
         frame_energies = []
         for i in range(0, n - frame_size, frame_size):
             frame = audio[i:i + frame_size]
@@ -342,64 +232,53 @@ class AASISTWrapper:
             energy_cv = 0.0
 
         # --- Compute bona fide score from features ---
-        # Higher score = more likely natural human speech
-        # Each feature contributes to the final score
+        bona_fide_score = 0.5
 
-        bona_fide_score = 0.5  # Start at neutral
-
-        # ZCR variation: natural speech has varied ZCR (high std = natural)
         if zcr_std > 0.03:
-            bona_fide_score += 0.10  # Good ZCR variation
+            bona_fide_score += 0.10
         elif zcr_std > 0.01:
-            bona_fide_score += 0.05  # Moderate variation
+            bona_fide_score += 0.05
         else:
-            bona_fide_score -= 0.05  # Too uniform = suspicious
+            bona_fide_score -= 0.05
 
-        # Spectral centroid: natural speech typically 1000-3000 Hz
         if 800 <= spectral_centroid <= 3500:
-            bona_fide_score += 0.05  # Natural range
+            bona_fide_score += 0.05
         elif spectral_centroid > 4000:
-            bona_fide_score -= 0.10  # Unusually high
+            bona_fide_score -= 0.10
         elif spectral_centroid < 500:
-            bona_fide_score -= 0.05  # Unusually low
+            bona_fide_score -= 0.05
 
-        # Crest factor: natural speech typically 3-12
         if 3.0 <= crest_factor <= 12.0:
             bona_fide_score += 0.05
         elif crest_factor > 15.0:
-            bona_fide_score -= 0.05  # Too dynamic
+            bona_fide_score -= 0.05
         elif crest_factor < 2.0:
-            bona_fide_score -= 0.05  # Too compressed
+            bona_fide_score -= 0.05
 
-        # Silence ratio: natural speech has 10-40% silence
         if 0.05 <= silence_ratio <= 0.50:
-            bona_fide_score += 0.10  # Natural pause pattern
+            bona_fide_score += 0.10
         elif silence_ratio > 0.70:
-            bona_fide_score -= 0.05  # Too much silence
+            bona_fide_score -= 0.05
         elif silence_ratio < 0.02:
-            bona_fide_score -= 0.05  # No pauses = suspicious
+            bona_fide_score -= 0.05
 
-        # Clipping: clipped audio is suspicious
         if clipping_ratio > 0.01:
-            bona_fide_score -= 0.15  # Clipping is a red flag
+            bona_fide_score -= 0.15
 
-        # Energy coefficient of variation: natural speech has more dynamics
         if energy_cv > 0.5:
-            bona_fide_score += 0.10  # Good dynamic range
+            bona_fide_score += 0.10
         elif energy_cv > 0.2:
             bona_fide_score += 0.05
         else:
-            bona_fide_score -= 0.05  # Too flat = synthetic
+            bona_fide_score -= 0.05
 
-        # RMS energy: very quiet or very loud is suspicious
         if rms < 0.001:
-            bona_fide_score -= 0.10  # Too quiet
+            bona_fide_score -= 0.10
         elif rms > 0.5:
-            bona_fide_score -= 0.05  # Very loud
+            bona_fide_score -= 0.05
         elif 0.01 <= rms <= 0.2:
-            bona_fide_score += 0.05  # Normal range
+            bona_fide_score += 0.05
 
-        # Clamp to 0-1
         bona_fide_score = max(0.0, min(1.0, bona_fide_score))
 
         normalization = self.normalize_score(bona_fide_score)
@@ -435,7 +314,7 @@ class AASISTWrapper:
             "model": MODEL_NAME,
             "version": MODEL_VERSION,
             "loaded": self._loaded,
-            "device": self.device,
+            "runtime": "onnxruntime",
             "error": self._load_error,
             "license": MODEL_LICENSE,
             "source": MODEL_SOURCE,
@@ -443,7 +322,7 @@ class AASISTWrapper:
         }
 
     def _load_calibration(self):
-        """Load calibration configuration from YAML file."""
+        """Load calibration configuration from YAML file (optional)."""
         try:
             cal_path = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
@@ -453,27 +332,12 @@ class AASISTWrapper:
                 with open(cal_path, "r") as f:
                     self._calibration = yaml.safe_load(f)
                 logger.info(f"Calibration config loaded from {cal_path}")
-            else:
-                logger.warning(f"Calibration config not found: {cal_path}")
         except Exception as e:
             logger.warning(f"Failed to load calibration config: {e}")
 
     def normalize_score(self, raw_score: float) -> dict:
-        """Normalize raw model score using calibration config.
-        
-        Args:
-            raw_score: Raw model output (0-1 range).
-            
-        Returns:
-            {
-                "normalized_score": int,  # 0-100
-                "severity": str,
-                "severity_label": str,
-                "recommended_action": str,
-            }
-        """
+        """Normalize raw model score (0-1) into a 0-100 display score."""
         if self._calibration is None:
-            # Default normalization without calibration
             normalized = int(raw_score * 100)
             return {
                 "normalized_score": normalized,
@@ -481,17 +345,14 @@ class AASISTWrapper:
                 "severity_label": "UNCERTAIN",
                 "recommended_action": "REVIEW",
             }
-        
-        # Apply calibration
+
         norm_config = self._calibration.get("normalization", {})
         output_min = norm_config.get("output_min", 0)
         output_max = norm_config.get("output_max", 100)
-        
-        # Min-max normalization
+
         normalized = int(raw_score * (output_max - output_min) + output_min)
         normalized = max(output_min, min(output_max, normalized))
-        
-        # Determine severity
+
         severity_levels = self._calibration.get("severity_levels", {})
         for level_name, level_config in severity_levels.items():
             range_min, range_max = level_config.get("range", [0, 100])
@@ -502,8 +363,7 @@ class AASISTWrapper:
                     "severity_label": level_config.get("label", "UNKNOWN"),
                     "recommended_action": level_config.get("recommended_action", "REVIEW"),
                 }
-        
-        # Default
+
         return {
             "normalized_score": normalized,
             "severity": "uncertain",
