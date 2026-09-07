@@ -195,8 +195,8 @@ call in `apps/web/lib/*`, with **zero component changes**.
 ### Phase 5 — Public & auth pages
 - [x] `/` Landing (soumya Landing → VoxVerity voice-integrity copy)
 - [x] `/help`, `/status`
-- [ ] `/login`, `/register` (soumya Auth)
-- [ ] `/forgot-password`, `/reset-password`
+- [x] `/login`, `/register` (soumya Auth)
+- [x] `/forgot-password`, `/reset-password`
 
 ### Phase 6 — Protected shell + core pages
 - [ ] `app/(protected)/layout.tsx` (Sidebar + Navbar shell) + `loading.tsx`
