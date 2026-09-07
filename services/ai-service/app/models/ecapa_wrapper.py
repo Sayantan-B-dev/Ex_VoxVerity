@@ -55,6 +55,16 @@ class ECAPAWrapper:
         if self._loaded:
             return True
 
+        # Kill-switch for tiny hosts: ECAPA (torch + speechbrain + ~100 MB
+        # weights) does not fit Render's 512 MB free tier alongside the rest
+        # of the service. Set ECAPA_ENABLED=false where RAM is scarce - the
+        # service stays up in AASIST-L-only mode and speaker endpoints return
+        # a clear "disabled" message instead of OOMing the whole instance.
+        if os.getenv("ECAPA_ENABLED", "true").lower() in ("0", "false", "no", "off"):
+            self._load_error = "ECAPA disabled by ECAPA_ENABLED=false (low-RAM mode)"
+            logger.warning(self._load_error)
+            return False
+
         try:
             from speechbrain.inference import EncoderClassifier
 

@@ -97,6 +97,15 @@ tries to compile it from source and dies in `cargo`. Fix: set the
 (or use the repo's `render.yaml` Blueprint, which already pins it), then
 **Manual Deploy → Clear build cache & deploy**.
 
+**`Out of memory (used over 512Mi)`:** the free tier is genuinely small for
+torch + speechbrain. Two layers of defense are already in place:
+`requirements.txt` pins CPU-only torch, and `render.yaml` sets
+`ECAPA_ENABLED=false` so the speaker model never loads on Render (AASIST-L
+still runs; speaker endpoints answer "disabled" instead of killing the
+instance). If you still OOM: confirm `ECAPA_ENABLED=false` is actually set
+in the dashboard (Blueprint applies it on first create; verify under
+Environment), and keep local voiceprint work on your own machine.
+
 **Faster, repeatable setup:** instead of configuring the service by hand,
 use **New → Blueprint** and point Render at this repo — `render.yaml` sets
 the root directory, build/start commands, health check, and `PYTHON_VERSION`.

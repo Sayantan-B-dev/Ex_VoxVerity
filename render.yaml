@@ -20,6 +20,8 @@ services:
         value: 3.13.4
       - key: DEBUG
         value: false
+      - key: ECAPA_ENABLED
+        value: false
       # Set these in the Render dashboard (do NOT commit secrets here):
       # - CORS_ORIGINS (https://<your-app>.vercel.app,http://localhost:3000)
       # - WS_ALLOWED_ORIGINS (same as above)
