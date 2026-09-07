@@ -39,3 +39,9 @@ __pycache__/
 *.egg-info/
 
 services/ai-service/.env
+
+
+# out-of-scope scaffolding (see TRACK.md) — never worked on, never committed
+soumya/
+subhankar/
+temp_proj/
