@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { signIn } from "next-auth/react";
-import { Hexagon, Mail, Lock, ArrowRight, ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Mail, Lock, ArrowRight, ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 
 type Mode = "signin" | "signup";
 
@@ -112,7 +113,13 @@ export default function Auth({ mode: initialMode = "signin" }: { mode?: Mode }) 
           {/* Header */}
           <div className="mb-6 flex flex-col items-center text-center">
             <div className="grid size-12 place-items-center rounded-2xl border border-teal/30 bg-teal/10">
-              <Hexagon className="size-6 fill-teal/20 text-teal" strokeWidth={2.2} />
+              <Image
+                src="/brand/voxverity/voxverity-symbol.png"
+                alt="VoxVerity logo"
+                width={24}
+                height={24}
+                className="size-6 object-contain"
+              />
             </div>
             <h1 className="mt-4 text-[22px] font-bold tracking-tight">{title}</h1>
             <p className="mt-1 text-[13px] text-text-secondary">

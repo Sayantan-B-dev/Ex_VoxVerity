@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import {
-  Hexagon,
   ShieldCheck,
   Waves,
   Activity,

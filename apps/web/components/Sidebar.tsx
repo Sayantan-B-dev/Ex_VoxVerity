@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { ConfirmDialog } from "./primitives";
 import {
   Activity,
   Bell,
-  Hexagon,
   Home,
   LayoutDashboard,
   Link2,
@@ -56,6 +58,7 @@ export default function Sidebar({
   setIsOpen: (v: boolean) => void;
 }) {
   const pathname = usePathname();
+  const [confirmingLogout, setConfirmingLogout] = useState(false);
 
   const isActive = (href: string) =>
     pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
@@ -84,7 +87,13 @@ export default function Sidebar({
               className="flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-teal/60"
             >
               <div className="rounded-xl border border-teal/30 bg-teal/10 p-2 text-teal">
-                <Hexagon className="size-5 fill-teal/20" strokeWidth={2.2} />
+                <Image
+                  src="/brand/voxverity/voxverity-symbol.png"
+                  alt="VoxVerity logo"
+                  width={20}
+                  height={20}
+                  className="size-5 object-contain"
+                />
               </div>
               <div>
                 <h1 className="text-[15px] font-bold tracking-wider text-white">VOXVERITY</h1>
@@ -143,7 +152,7 @@ export default function Sidebar({
             <Home className="size-4" /> Landing Page
           </Link>
           <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={() => setConfirmingLogout(true)}
             className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2 text-xs text-text-secondary transition-all hover:bg-critical/10 hover:text-critical"
           >
             <LogOut className="size-4" /> Logout
@@ -163,6 +172,14 @@ export default function Sidebar({
           </div>
         </div>
       </aside>
+      <ConfirmDialog
+        open={confirmingLogout}
+        title="Log out?"
+        body="You will be signed out of VoxVerity on this browser."
+        confirmLabel="Log out"
+        onCancel={() => setConfirmingLogout(false)}
+        onConfirm={() => signOut({ callbackUrl: "/login" })}
+      />
     </>
   );
 }

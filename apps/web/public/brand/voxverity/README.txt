@@ -1,0 +1,1 @@
+VoxVerity logo assets. Put this folder at Next.js public/brand/voxverity/. Main logo: voxverity-full.png or .webp. Dark background: voxverity-full-dark.png or .webp. Compact mark: voxverity-symbol.png or .webp. Favicon files are provided in multiple sizes.

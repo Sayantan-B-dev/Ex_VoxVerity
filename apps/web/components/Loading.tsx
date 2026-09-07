@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Hexagon } from "lucide-react";
+import Image from "next/image";
 
 const steps = [
   "Initializing secure session",
@@ -44,7 +44,14 @@ export default function Loading({ onDone }: { onDone?: () => void }) {
             className="absolute inset-0 rounded-full border-2 border-teal/20 border-t-teal"
             style={{ animation: "sonar 1s linear infinite" }}
           />
-          <Hexagon className="size-9 fill-teal/20 text-teal" strokeWidth={2.2} />
+          <Image
+            src="/brand/voxverity/voxverity-symbol.png"
+            alt="VoxVerity logo"
+            width={36}
+            height={36}
+            className="size-9 object-contain"
+            priority
+          />
         </div>
 
         <h1 className="mt-6 text-[22px] font-bold tracking-tight">VOXVERITY</h1>

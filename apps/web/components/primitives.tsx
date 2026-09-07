@@ -93,6 +93,69 @@ export function InfoHint({ text }: { text: string }) {
   );
 }
 
+// Centered confirmation popup (Escape/backdrop to cancel, Enter to confirm).
+export function ConfirmDialog({
+  open,
+  title,
+  body,
+  confirmLabel = "Confirm",
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  title: string;
+  body?: string;
+  confirmLabel?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+      if (e.key === "Enter") onConfirm();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onCancel, onConfirm]);
+
+  if (!open) return null;
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[110] grid place-items-center bg-black/70 p-4"
+      onClick={onCancel}
+      role="presentation"
+    >
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm rounded-2xl border border-line bg-card p-5 shadow-2xl"
+      >
+        <p className="text-[15px] font-semibold text-text-primary">{title}</p>
+        {body && <p className="mt-1.5 text-[13px] leading-relaxed text-text-secondary">{body}</p>}
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="rounded-lg border border-line bg-elev px-4 py-2 text-[13px] font-medium text-text-secondary transition-colors hover:text-text-primary"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            autoFocus
+            className="rounded-lg border border-critical/50 bg-critical/15 px-4 py-2 text-[13px] font-semibold text-critical transition-colors hover:bg-critical/25"
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export function Card({
   children,
   className,
