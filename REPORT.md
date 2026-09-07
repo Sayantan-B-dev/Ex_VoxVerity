@@ -24,11 +24,11 @@
 | Identity in `app_users` + `profiles` + org membership | `supabase/migrations/full_schema.sql`, `final_seed.sql` | ✅ works |
 | Mic capture → 16kHz PCM → **3s chunks** → AI-service WebSocket | `apps/web/lib/realtime.ts` (`useRealtimeMic`), `lib/ai-service.ts` | ✅ works |
 | AI service realtime analysis (DSP + AASIST-L spoof + ECAPA speaker + human-pattern + risk engine + alerts) | `services/ai-service/app/realtime/*`, `app/risk/*` | ✅ works, `CHUNK_DURATION_MS = 3000` |
-| WebRTC signaling with rooms + caller/receiver roles | `services/ai-service/app/realtime/signaling.py` (`/v1/webrtc/{room_id}`) | ⚠️ backend only — no UI, no accept flow |
-| Live risk visualization (per-tab, session-local) | `apps/web/app/(protected)/live/page.tsx` → `components/LiveMonitoring.tsx` | ⚠️ works only in the caller's own tab |
+| WebRTC signaling with rooms + caller/receiver roles + ring/accept/reject state machine | `services/ai-service/app/realtime/signaling.py` (`/v1/webrtc/{room_id}`) | ✅ implemented — UI on `/live` via `lib/call.ts` |
+| Live risk visualization (caller-only mic, 3s chunks) | `apps/web/app/(protected)/live/page.tsx` → `components/LiveMonitoring.tsx` | ✅ works — only the caller's voice is analyzed |
 | Risk policy CRUD (org thresholds/weights) | `apps/web/app/api/risk-policy/route.ts` | ✅ works |
 | Supabase realtime subscription helper | `apps/web/lib/realtime.ts` (`useSupabaseTable`) | ✅ works |
-| Evidence packaging (canonical manifest → SHA-256) + local verify | `apps/web/app/api/evidence/route.ts`, `app/api/blockchain/verify/route.ts` | ⚠️ hash exists, **on-chain write is NOT wired** |
+| Evidence packaging (canonical manifest → SHA-256) + on-chain registration | `apps/web/app/api/evidence/route.ts`, `lib/blockchain.ts`, `app/api/blockchain/verify/route.ts` | ✅ wired — auto-registers on call end (fail-soft without chain env) |
 | Solidity evidence registry + deploy script (Polygon Amoy) | `blockchain/contracts/VoiceIntegrityRegistry.sol`, `scripts/deploy.js` | ✅ contract ready |
 | Full DB schema + demo seed (calls, chunks, alerts, incidents, evidence, policies, models, integrations, insights…) | `supabase/migrations/reset.sql` + `full_schema.sql`, `supabase/final_seed.sql` | ✅ ready |
 
@@ -127,3 +127,38 @@ Your described product needs **presence + calling + live risk + evidence fingerp
 - Fixed seed FK error `23503` (`profiles.id` → `auth.users`) — **permanently solved** by the consolidated schema: `profiles.id` has no FK, every user FK points at `app_users` (NextAuth DB-only).
 - **SQL run order (fresh environment):** `supabase/migrations/reset.sql` → `supabase/migrations/full_schema.sql` → `supabase/final_seed.sql`.
 - Old migrations `001`/`002`/`003` and seeds `seed.sql`/`seed2.sql` were deleted — `full_schema.sql` + `reset.sql` + `final_seed.sql` replace them entirely.
+
+---
+
+## 8. Session 2 — build progress (2026-09-07, on `main`)
+
+Everything in the P0 gap table (§3) has now been **implemented and committed**, with all demo/hardcoded data removed from the UI.
+
+### 8.1 What was built this session
+
+| Area | What landed | Files |
+|---|---|---|
+| Pages/nav cut | Verification, Analysis Lab, Analytics, Audit, Threats, Integrations, Models, Admin removed. Sidebar + middleware updated to the kept set: **Dashboard, Live Monitor, Calls, Analysis, Profile, Alerts, Incidents, Evidence, Settings**. | `components/Sidebar.tsx`, `middleware.ts`, deleted page dirs |
+| Demo data purge | Every page now renders from SQL only — `lib/demo-data.ts` deleted, `lib/data.ts` rewritten (no fallbacks), all views/detail pages rewritten, `LiveMonitoring` no longer depends on a fake session. | `lib/data.ts`, `lib/types.ts`, all view components + detail pages |
+| Online presence | `presence` table (schema §8) + `/api/presence` heartbeat (POST/DELETE, prunes stale rows) + `usePresence()` hook (15s heartbeat, 45s stale cutoff, realtime). `/live` shows **online now** with green/warn dots. | `full_schema.sql`, `app/api/presence/route.ts`, `lib/presence.ts`, `components/LivePage.tsx` |
+| Call flow | `call_invites` table + `/api/call-invites` (create call+invite, accept/reject/end) + room state machine in `signaling.py` (join guards, hangup, peer_left) + `useCall()` hook: ring → incoming modal (Accept/Decline) → WebRTC peer call with STUN, caller/receiver roles, 30s no-answer timeout, busy handling. **Receiver's mic is never analyzed** — only the caller's opens the analysis stream. | `full_schema.sql`, `app/api/call-invites/route.ts`, `services/ai-service/app/realtime/signaling.py`, `lib/call.ts`, `components/LivePage.tsx` |
+| Risk write-back | `/api/risk-events` recomputes the score **server-side** with a TS port of the deterministic risk engine (`lib/risk-engine.ts`, same weights + 0/25/26/50/51/75/76/100 bands), persists each chunk to `analysis_results`, rolls worst risk + alert count into `calls`, and opens alerts at HIGH/CRITICAL. Dashboard live feed subscribes to `analysis_results` realtime. | `app/api/risk-events/route.ts`, `lib/risk-engine.ts`, `components/Dashboard.tsx` |
+| Blockchain fingerprint | Server-only ethers client (`lib/blockchain.ts`, private key never leaves the server). **Auto-triggered**: call end packages evidence → SHA-256 → `registerEvidence(hash, recordId, createdAt)` on Polygon Amoy → `blockchain_registrations` + `evidence_records.blockchain_tx`. Fail-soft when env vars unset. Verify route now checks the chain. | `lib/blockchain.ts`, `app/api/evidence/route.ts`, `app/api/blockchain/verify/route.ts`, `app/api/call-invites/route.ts` |
+
+### 8.2 Remaining (deployment + hardening)
+
+| # | Item | Notes |
+|---|---|---|
+| 1 | **Deploy the AI service** | Set `AI_SERVICE_URL` (server) + `NEXT_PUBLIC_AI_SERVICE_URL` (browser) + `AI_SERVICE_API_KEY` in `apps/web/.env.local`; both the mic-analysis WS (`/v1/realtime/{id}`) and signaling WS (`/v1/webrtc/{room}`) point at it. |
+| 2 | **Deploy the contract + set chain env** | `cd blockchain && npx hardhat run scripts/deploy.js --network amoy`; set `VOICE_REGISTRY_ADDRESS`, `BLOCKCHAIN_RPC_URL`, `BLOCKCHAIN_PRIVATE_KEY`. Until then fingerprints are stored with `status='not_configured'` (visible on the Evidence page). |
+| 3 | WebSocket auth + origin checks | `signaling.py` / `realtime/routes.py` still accept any connection (P2 from §3). |
+| 4 | Room/session TTL + cleanup | In-memory rooms never expire idle sessions (P2). |
+| 5 | Supabase Realtime for `presence`/`calls`/`call_invites`/`analysis_results`/`alerts` | Already published in `full_schema.sql` §11 — re-run it on an existing project, or run the publication block manually. |
+| 6 | Rate limiting on signaling + presence | Fine for a demo, not beyond. |
+
+### 8.3 Run it
+
+1. SQL: `reset.sql` → `full_schema.sql` → `final_seed.sql` (re-run the §11 publication block if upgrading an existing DB).
+2. AI service: `cd services/ai-service && uvicorn app.main:app --port 8000` (serves both `/v1/realtime/*` and `/v1/webrtc/*`).
+3. Web: `cd apps/web && npm run dev` — login as `demo@voxverity.io / VoxVerity123!` in **two browsers** (seed users: demo@voxverity.io, analyst@voxverity.io).
+4. `/live`: call the other user → accept → caller's voice streams in 3s chunks to the AI service → per-chunk risk lands on `/dashboard` live feed → on hang-up the call closes and its evidence hash is fingerprinted on-chain (when configured).
