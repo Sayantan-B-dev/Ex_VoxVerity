@@ -84,7 +84,20 @@ export function useRealtimeMic(opts?: {
       const { aiRealtimeWsUrl, floatToPcm16Base64 } = await import("@/lib/ai-service");
       const id = crypto.randomUUID();
       setSessionId(id);
-      const ws = new WebSocket(aiRealtimeWsUrl(id));
+
+      // Fetch a short-lived WS auth token from the Next.js server.
+      let wsToken = "";
+      try {
+        const tokRes = await fetch("/api/ws-token", { method: "POST" });
+        if (tokRes.ok) {
+          const tokData = await tokRes.json();
+          wsToken = tokData.token ?? "";
+        }
+      } catch {
+        // Token fetch failed — connect without token (dev mode fallback).
+      }
+
+      const ws = new WebSocket(aiRealtimeWsUrl(id, wsToken));
       refs.current.ws = ws;
       refs.current.seq = 0;
 

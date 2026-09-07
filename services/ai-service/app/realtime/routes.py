@@ -25,7 +25,9 @@ from app.core.ws_auth import (
     get_origin_validator,
     get_connection_limiter,
     get_session_ttl,
+    get_token_secret,
     is_valid_uuid,
+    verify_ws_token,
 )
 
 logger = logging.getLogger(__name__)
@@ -116,6 +118,19 @@ async def realtime_audio(websocket: WebSocket, session_id: str):
         await websocket.send_json({"type": "server_error", "message": "Too many connections"})
         await websocket.close(code=4008, reason="Rate limited")
         return
+
+    # --- JWT token validation ---
+    token_secret = get_token_secret()
+    token = websocket.query_params.get("token", "")
+    if token:
+        payload = verify_ws_token(token, token_secret)
+        if payload is None:
+            await websocket.accept()
+            await websocket.send_json({"type": "server_error", "message": "Invalid or expired token"})
+            await websocket.close(code=4001, reason="Auth failed")
+            limiter.release(client_ip)
+            return
+    # else: no token provided — allow in dev mode (non-browser clients)
 
     # Start session TTL sweep if not running
     _ensure_sweep_running()

@@ -7,6 +7,10 @@ WebSocket upgrades bypass it, so we validate manually.
 
 import re
 import time
+import hmac
+import hashlib
+import base64
+import json
 import logging
 from typing import Dict, Optional, Set
 from fastapi import WebSocket, WebSocketDisconnect
@@ -111,6 +115,48 @@ def is_valid_uuid(value: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# JWT (HMAC-SHA256) verification — lightweight, no external dependencies
+# ---------------------------------------------------------------------------
+
+def _b64url_decode(data: str) -> bytes:
+    """Base64url decode with padding."""
+    padded = data + "=" * (-len(data) % 4)
+    return base64.urlsafe_b64decode(padded)
+
+
+def verify_ws_token(token: str, secret: str) -> Optional[dict]:
+    """Verify a HS256 JWT and return the payload, or None on failure.
+
+    This is a minimal verification — no audience/issuer checks —
+    sufficient for short-lived (60 s) WebSocket session tokens.
+    """
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return None
+
+        signing_input = f"{parts[0]}.{parts[1]}".encode()
+        signature = _b64url_decode(parts[2])
+        expected = hmac.new(
+            secret.encode(), signing_input, hashlib.sha256
+        ).digest()
+
+        if not hmac.compare_digest(signature, expected):
+            return None
+
+        payload = json.loads(_b64url_decode(parts[1]))
+
+        # Check expiry
+        exp = payload.get("exp")
+        if exp is not None and time.time() > exp:
+            return None
+
+        return payload
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Convenience: validate a WS connection at accept time
 # ---------------------------------------------------------------------------
 
@@ -183,16 +229,25 @@ def get_session_ttl() -> TTLTracker:
     return _session_ttl
 
 
+_token_secret: str = "dev-ws-token-secret"
+
+
+def get_token_secret() -> str:
+    return _token_secret
+
+
 def configure_ws_security(
     allowed_origins: Optional[Set[str]] = None,
     max_connections_per_ip: int = 5,
     room_ttl_seconds: int = 600,
     session_ttl_seconds: int = 300,
+    token_secret: str = "dev-ws-token-secret",
 ):
     """Reconfigure singletons from app settings."""
-    global _origin_validator, _connection_limiter, _room_ttl, _session_ttl
+    global _origin_validator, _connection_limiter, _room_ttl, _session_ttl, _token_secret
     if allowed_origins is not None:
         _origin_validator = OriginValidator(allowed_origins)
     _connection_limiter = WsConnectionLimiter(max_connections_per_ip)
     _room_ttl = TTLTracker(room_ttl_seconds)
     _session_ttl = TTLTracker(session_ttl_seconds)
+    _token_secret = token_secret

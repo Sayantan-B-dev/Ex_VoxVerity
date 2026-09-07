@@ -109,10 +109,11 @@ export interface RealtimeAnalysis {
   source?: string;
 }
 
-export function aiRealtimeWsUrl(sessionId: string): string {
+export function aiRealtimeWsUrl(sessionId: string, token?: string): string {
   const http = aiServiceBrowserUrl();
   const ws = http.replace(/^http/, "ws");
-  return `${ws}/v1/realtime/${sessionId}`;
+  const base = `${ws}/v1/realtime/${sessionId}`;
+  return token ? `${base}?token=${encodeURIComponent(token)}` : base;
 }
 
 export function floatToPcm16Base64(float32: Float32Array): string {

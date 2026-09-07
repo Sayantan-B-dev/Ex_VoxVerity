@@ -33,9 +33,10 @@ interface InviteRow {
     | Array<{ id: string; name: string | null; email: string }>;
 }
 
-function signalingUrl(roomId: string): string {
+function signalingUrl(roomId: string, token?: string): string {
   const http = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? "http://localhost:8000";
-  return `${http.replace(/^http/, "ws")}/v1/webrtc/${roomId}`;
+  const base = `${http.replace(/^http/, "ws")}/v1/webrtc/${roomId}`;
+  return token ? `${base}?token=${encodeURIComponent(token)}` : base;
 }
 
 const RTC_CONFIG: RTCConfiguration = {
@@ -211,8 +212,19 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
   }
 
   const openSignaling = useCallback(
-    (room: string, role: "caller" | "receiver", other: CallPeer) => {
-      const ws = new WebSocket(signalingUrl(room));
+    async (room: string, role: "caller" | "receiver", other: CallPeer) => {
+      // Fetch a short-lived WS auth token from the Next.js server.
+      let wsToken = "";
+      try {
+        const tokRes = await fetch("/api/ws-token", { method: "POST" });
+        if (tokRes.ok) {
+          const tokData = await tokRes.json();
+          wsToken = tokData.token ?? "";
+        }
+      } catch {
+        // Token fetch failed — connect without token (dev mode fallback).
+      }
+      const ws = new WebSocket(signalingUrl(room, wsToken));
       wsRef.current = ws;
       void other;
 

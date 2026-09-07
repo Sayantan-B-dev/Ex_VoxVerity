@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     ws_max_connections_per_ip: int = 5
     ws_room_ttl_seconds: int = 600    # 10 minutes
     ws_session_ttl_seconds: int = 300  # 5 minutes
+    ws_token_secret: str = "dev-ws-token-secret"  # Shared HMAC secret with Next.js
 
     # Model settings
     aasist_model_path: str = "model_artifacts/aasist_l.pth"

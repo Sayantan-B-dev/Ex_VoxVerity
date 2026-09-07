@@ -46,12 +46,14 @@ async def load_models():
         max_connections_per_ip=settings.ws_max_connections_per_ip,
         room_ttl_seconds=settings.ws_room_ttl_seconds,
         session_ttl_seconds=settings.ws_session_ttl_seconds,
+        token_secret=settings.ws_token_secret,
     )
     logger.info(
         f"WebSocket security configured: origins={len(ws_origins)}, "
         f"max_conn/IP={settings.ws_max_connections_per_ip}, "
         f"room_ttl={settings.ws_room_ttl_seconds}s, "
-        f"session_ttl={settings.ws_session_ttl_seconds}s"
+        f"session_ttl={settings.ws_session_ttl_seconds}s, "
+        f"token_auth=enabled"
     )
 
     aasist = get_aasist()

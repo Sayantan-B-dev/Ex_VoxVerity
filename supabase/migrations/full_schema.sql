@@ -598,7 +598,8 @@ CREATE TRIGGER notification_preferences_updated_at BEFORE UPDATE ON notification
 -- ============================================================================
 -- 11. Supabase Realtime publication
 --     Tables the browser subscribes to (dashboard live feed, live presence,
---     alerts). Add them to the realtime publication if it exists.
+--     alerts, incidents, evidence). Add them to the realtime publication
+--     if it exists.
 -- ============================================================================
 DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE presence;
@@ -606,6 +607,8 @@ DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE calls;
   ALTER PUBLICATION supabase_realtime ADD TABLE analysis_results;
   ALTER PUBLICATION supabase_realtime ADD TABLE call_invites;
+  ALTER PUBLICATION supabase_realtime ADD TABLE incidents;
+  ALTER PUBLICATION supabase_realtime ADD TABLE evidence_records;
 EXCEPTION WHEN undefined_object OR duplicate_object THEN NULL;
 END $$;
 
