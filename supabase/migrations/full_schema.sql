@@ -467,7 +467,24 @@ CREATE TABLE dashboard_insights (
 );
 
 -- ============================================================================
--- 8. Row Level Security
+-- 8. Presence (who is online right now, logged in only)
+--    Heartbeat API upserts last_seen every ~15s; rows older than 45s are
+--    treated as offline by the UI (and pruned by the heartbeat API).
+-- ============================================================================
+
+CREATE TABLE presence (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+  app_user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'online' CHECK (status IN ('online','in_call')),
+  last_seen TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(organization_id, app_user_id)
+);
+CREATE INDEX idx_presence_org ON presence(organization_id);
+CREATE INDEX idx_presence_seen ON presence(last_seen);
+
+-- ============================================================================
+-- 9. Row Level Security
 --    Browsers read via anon/authenticated policies (Supabase Realtime).
 --    All writes happen server-side with service_role (bypasses RLS).
 -- ============================================================================
@@ -503,6 +520,7 @@ ALTER TABLE analytics_daily ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pipeline_health ENABLE ROW LEVEL SECURITY;
 ALTER TABLE protected_lines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dashboard_insights ENABLE ROW LEVEL SECURITY;
+ALTER TABLE presence ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   CREATE POLICY "browser read app_users" ON app_users FOR SELECT TO anon, authenticated USING (true);
@@ -536,11 +554,12 @@ DO $$ BEGIN
   CREATE POLICY "browser read pipeline" ON pipeline_health FOR SELECT TO anon, authenticated USING (true);
   CREATE POLICY "browser read lines" ON protected_lines FOR SELECT TO anon, authenticated USING (true);
   CREATE POLICY "browser read insights" ON dashboard_insights FOR SELECT TO anon, authenticated USING (true);
+  CREATE POLICY "browser read presence" ON presence FOR SELECT TO anon, authenticated USING (true);
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- ============================================================================
--- 9. updated_at triggers
+-- 10. updated_at triggers
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.update_updated_at()
@@ -558,6 +577,19 @@ CREATE TRIGGER incidents_updated_at BEFORE UPDATE ON incidents FOR EACH ROW EXEC
 CREATE TRIGGER risk_policies_updated_at BEFORE UPDATE ON risk_policies FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER integrations_updated_at BEFORE UPDATE ON integrations FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER notification_preferences_updated_at BEFORE UPDATE ON notification_preferences FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ============================================================================
+-- 11. Supabase Realtime publication
+--     Tables the browser subscribes to (dashboard live feed, live presence,
+--     alerts). Add them to the realtime publication if it exists.
+-- ============================================================================
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE presence;
+  ALTER PUBLICATION supabase_realtime ADD TABLE alerts;
+  ALTER PUBLICATION supabase_realtime ADD TABLE calls;
+  ALTER PUBLICATION supabase_realtime ADD TABLE analysis_results;
+EXCEPTION WHEN undefined_object OR duplicate_object THEN NULL;
+END $$;
 
 -- ============================================================================
 -- Done. Run final_seed.sql for demo data.

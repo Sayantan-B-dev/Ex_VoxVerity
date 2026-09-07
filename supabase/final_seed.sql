@@ -325,7 +325,15 @@ INSERT INTO dashboard_insights (organization_id, title, body, level) VALUES
 ON CONFLICT DO NOTHING;
 
 -- ----------------------------------------------------------------------------
--- 18. Integrations (stubs — twilio/zoom/teams from seed.sql + secops set from seed2)
+-- 18. Presence (demo users online) — heartbeat API refreshes last_seen live
+-- ----------------------------------------------------------------------------
+INSERT INTO presence (organization_id, app_user_id, status, last_seen) VALUES
+  ('00000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'online', now()),
+  ('00000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'online', now())
+ON CONFLICT (organization_id, app_user_id) DO UPDATE SET status = EXCLUDED.status, last_seen = now();
+
+-- ----------------------------------------------------------------------------
+-- 19. Integrations (stubs — twilio/zoom/teams from seed.sql + secops set from seed2)
 -- ----------------------------------------------------------------------------
 INSERT INTO integrations (organization_id, provider, config, status) VALUES
   ('00000000-0000-0000-0000-000000000001', 'twilio', '{"name": "Twilio Media Streams", "description": "Telephony adapter"}', 'inactive'),
