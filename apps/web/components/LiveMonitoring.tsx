@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CircleDot, Loader2, ShieldQuestion, TriangleAlert, Mic, Square, Table } from "lucide-react";
 import { Card } from "./primitives";
 import RiskMeter from "./RiskMeter";
@@ -71,6 +71,8 @@ export default function LiveMonitoring({
   onChunk,
   remoteStream,
   subjectName,
+  model,
+  onLevel,
 }: {
   session?: LiveSession;
   /** Start capture automatically on mount (creator side of a live call). */
@@ -81,23 +83,42 @@ export default function LiveMonitoring({
   remoteStream?: MediaStream | null;
   /** Display name of the person whose voice is being analyzed. */
   subjectName?: string;
+  /** Client-selected analysis model id (sent with start_session). */
+  model?: string;
+  /** Live voice level (0-1) for the speaking indicator in the call card. */
+  onLevel?: (amp: number) => void;
 }) {
   const duration = useDuration(session?.durationSec ?? 0);
   const isRemote = Boolean(remoteStream);
   const subjectLabel = subjectName ?? (isRemote ? "the other person" : undefined);
+  const lastLevelEmit = useRef(0);
   const live = useRealtimeMic({
     source: isRemote ? "remote_call_audio" : "microphone",
     stream: remoteStream,
+    requireStream: isRemote,
+    model,
     onResult: onChunk,
   });
 
-  // Auto-start once the peer's audio actually arrives over WebRTC.
+  // Auto-start ONLY once the peer's audio has actually arrived over WebRTC.
+  // The moment this component mounts (call active) the remote stream may still
+  // be null — starting then would silently fall back to THIS browser's mic and
+  // the dashboard would analyze the host's own voice instead of the caller's.
   useEffect(() => {
-    if (autoStart && live.state === "idle" && (!isRemote || remoteStream)) {
-      live.start();
-    }
+    if (!autoStart || live.state !== "idle") return;
+    if (isRemote && !remoteStream) return; // wait for the caller's audio
+    live.start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart, remoteStream]);
+  // Emit the latest waveform amplitude as a throttled voice-level signal so the
+  // call card can show a speaking indicator for the analyzed voice.
+  useEffect(() => {
+    if (!onLevel || !live.waveform.length) return;
+    const now = Date.now();
+    if (now - lastLevelEmit.current < 200) return;
+    lastLevelEmit.current = now;
+    onLevel(live.waveform[live.waveform.length - 1]);
+  }, [live.waveform, onLevel]);
   const rtAlerts = useSupabaseTable("alerts");
   const isLive = live.state === "live" && live.latest !== null;
   const latest = live.latest;
@@ -114,6 +135,8 @@ export default function LiveMonitoring({
   const acousticHistory = live.chunks
     .slice(-8)
     .map((c) => (c.acousticAnomaly ?? 0) / 100);
+  const sim = isLive ? latest.speakerSimilarity : session?.speakerSimilarity;
+  const simValue = sim ?? 0;
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -258,6 +281,9 @@ export default function LiveMonitoring({
               {live.chunks.length} live chunks · avg {live.avgRisk} · last {risk}/100
             </p>
           )}
+          {isLive && latest?.noSpeech && (
+            <p className="font-mono text-[11px] text-text-disabled">last chunk: no speech detected (silence gate)</p>
+          )}
         </Card>
 
         {/* Waveform + metrics */}
@@ -293,17 +319,28 @@ export default function LiveMonitoring({
               </p>
             </MetricCard>
 
-            <MetricCard title="Speaker Similarity" hint="Match to known speaker profile">
+            <MetricCard title="Speaker Similarity" hint="Match to the enrolled voiceprint">
               <div className="flex items-center justify-between">
-                <CircularProgress value={session?.speakerSimilarity ?? 0} color={bandTone("HIGH")} empty={!session?.speakerSimilarity} />
+                <CircularProgress
+                  value={simValue * 100}
+                  color={simValue >= 0.7 ? bandTone("HIGH") : simValue >= 0.5 ? "#f59e0b" : "#ff3b3b"}
+                  empty={sim == null}
+                />
                 <p className="max-w-[9rem] text-right text-[12px] text-text-secondary">
-                  {session?.speakerSimilarity
-                    ? session.speakerSimilarity < 0.8
-                      ? "Below the 80% trust threshold — flagged as mismatch."
-                      : "Matches the enrolled speaker profile."
-                    : "No enrolled speaker reference — enroll a voiceprint in Profile to compare."}
+                  {sim == null
+                    ? "No voiceprint enrolled — run scripts/train_voiceprint.py to train one, then the dashboard scores similarity against YOUR voice."
+                    : sim >= 0.7
+                      ? `Matches the enrolled voiceprint${latest?.speakerName ? ` (${latest.speakerName})` : ""}.`
+                      : sim >= 0.5
+                        ? "Uncertain — close but below the 70% match threshold."
+                        : "Does not match the enrolled voiceprint — possible different speaker."}
                 </p>
               </div>
+              {latest?.speakerMatch != null && (
+                <p className="mt-2 font-mono text-[11px] text-text-secondary">
+                  match: {latest.speakerMatch ? "YES" : "NO"} · confidence {latest.speakerConfidence ?? "none"}
+                </p>
+              )}
             </MetricCard>
 
             <MetricCard title="Acoustic Anomaly" hint="Abnormal acoustic patterns detected">
@@ -368,6 +405,7 @@ export default function LiveMonitoring({
                   <th className="px-3 py-2">Time</th>
                   <th className="px-3 py-2">Risk</th>
                   <th className="px-3 py-2">Spoof (bona fide)</th>
+                  <th className="px-3 py-2">Speaker</th>
                   <th className="px-3 py-2">Acoustic</th>
                   <th className="px-3 py-2">Human pattern</th>
                   <th className="px-3 py-2">RMS</th>
@@ -390,6 +428,17 @@ export default function LiveMonitoring({
                       </span>
                     </td>
                     <td className="px-3 py-1.5">{c.spoofScore != null ? `${c.spoofScore}%` : "—"}</td>
+                    <td className="px-3 py-1.5">
+                      {c.speakerSimilarity != null ? (
+                        <span className={c.speakerMatch ? "text-neon" : "text-warn"}>
+                          {(c.speakerSimilarity * 100).toFixed(0)}%{c.noSpeech ? " · silence" : ""}
+                        </span>
+                      ) : c.noSpeech ? (
+                        "— · silence"
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="px-3 py-1.5">{c.acousticAnomaly != null ? `${c.acousticAnomaly}` : "—"}</td>
                     <td className="px-3 py-1.5">{c.humanScore != null ? `${c.humanScore}%` : "—"}</td>
                     <td className="px-3 py-1.5">{c.rms != null ? c.rms.toFixed(3) : "—"}</td>

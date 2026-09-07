@@ -290,6 +290,8 @@ async def webrtc_signaling(websocket: WebSocket, room_id: str):
 
 async def _send(websocket: WebSocket, data: dict):
     try:
+        if websocket.client_state.name != "CONNECTED":
+            return  # socket already closing/closed — nothing to send
         await websocket.send_json(data)
     except Exception as e:
-        logger.error(f"Failed to send signaling message: {e}")
+        logger.debug(f"Failed to send signaling message: {e}")

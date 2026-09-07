@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { AlertTriangle, AudioLines, Bell, Gauge } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, AudioLines, Bell, Cpu, Gauge, MicVocal } from "lucide-react";
 import { Card } from "./primitives";
 import { Btn, Select, Toggle } from "./forms";
+import { MODEL_OPTIONS, useModelPreference } from "@/lib/model-settings";
+import { getVoiceprintStatus, type VoiceprintStatus } from "@/lib/ai-service";
 
-const tabs = ["General", "Notifications", "Security"];
+const tabs = ["General", "Notifications", "Security", "Model"];
 
 function Section({
   icon: Icon,
@@ -127,6 +129,108 @@ function Security() {
   );
 }
 
+function fmtDate(iso?: string) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return iso;
+  }
+}
+
+function ModelSettings() {
+  const [model, setModel] = useModelPreference();
+  const [vp, setVp] = useState<VoiceprintStatus | null>(null);
+  const [vpLoading, setVpLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    getVoiceprintStatus()
+      .then((s) => {
+        if (!cancelled) {
+          setVp(s);
+          setVpLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setVpLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <>
+      <Section icon={Cpu} title="Analysis Model" subtitle="Model used for every realtime chunk (sent with each session)">
+        <div className="-my-1">
+          {MODEL_OPTIONS.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => setModel(m.id)}
+              className={`flex w-full items-start justify-between gap-4 rounded-xl border px-4 py-3 text-left transition-colors ${
+                model === m.id
+                  ? "border-teal/60 bg-teal/10"
+                  : "border-line bg-transparent hover:border-white/20"
+              }`}
+            >
+              <div>
+                <p className="text-[14px] font-medium">{m.label}</p>
+                <p className="text-[12px] text-text-secondary">{m.hint}</p>
+              </div>
+              <span
+                className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border ${
+                  model === m.id ? "border-teal bg-teal" : "border-line"
+                }`}
+              >
+                {model === m.id && <span className="size-1.5 rounded-full bg-black" />}
+              </span>
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 text-[12px] text-text-secondary">
+          Saved per browser (localStorage) — no database writes. The chosen model is applied to new
+          realtime sessions immediately.
+        </p>
+      </Section>
+
+      <Section icon={MicVocal} title="Your Voiceprint" subtitle="Speaker similarity is scored against this enrolled voice">
+        {vpLoading ? (
+          <p className="text-[12px] text-text-secondary">Checking voiceprint status…</p>
+        ) : vp?.enrolled ? (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {[
+              { label: "Name", value: vp.name ?? "default" },
+              { label: "Segments", value: String(vp.chunk_count ?? 0) },
+              { label: "Speech duration", value: `${vp.duration_s ?? 0}s` },
+              { label: "Trained", value: fmtDate(vp.created_at) },
+            ].map((m) => (
+              <div key={m.label}>
+                <p className="text-[11px] uppercase tracking-wide text-text-disabled">{m.label}</p>
+                <p className="mt-0.5 font-mono text-[14px] font-semibold text-text-primary">{m.value}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[12px] text-text-secondary">
+            No voiceprint enrolled. Train one with the local trainer app:
+          </p>
+        )}
+        <div className="mt-4 rounded-lg border border-line bg-elev p-3">
+          <p className="font-mono text-[11px] text-text-secondary">
+            cd services/ai-service && python scripts/train_voiceprint.py
+          </p>
+          <p className="mt-1 text-[11px] text-text-disabled">
+            Records ~1 minute of your voice (or short parts), trains an ECAPA-TDNN voiceprint live,
+            and saves it to model_artifacts/voiceprints/. The AI service picks it up immediately. The
+            voiceprint stays on this machine — never uploaded or stored on-chain.
+          </p>
+        </div>
+      </Section>
+    </>
+  );
+}
+
 export default function SettingsView() {
   const [tab, setTab] = useState("General");
   return (
@@ -156,6 +260,7 @@ export default function SettingsView() {
         {tab === "General" && <General />}
         {tab === "Notifications" && <Notifications />}
         {tab === "Security" && <Security />}
+        {tab === "Model" && <ModelSettings />}
       </div>
     </div>
   );

@@ -8,6 +8,8 @@
  */
 
 export interface RiskSignals {
+  /** True when the chunk contained no speech — keep risk LOW. */
+  no_speech?: boolean;
   spoof_detection?: {
     normalized_score?: number;
     fallback?: boolean;
@@ -184,7 +186,10 @@ export function evaluateRisk(signals: RiskSignals): RiskResult {
     adjustments.push(`quality_mitigation: ${MITIGATION.high_quality_audio_bonus}`);
   }
 
-  const score = Math.max(0, Math.min(100, Math.round(base)));
+  let score = Math.max(0, Math.min(100, Math.round(base)));
+
+  // No-speech gate: silent chunks are not evidence of fraud.
+  if (signals.no_speech) score = Math.min(score, 8);
 
   let severity: RiskResult["severity"] = "LOW";
   if (score > THRESHOLDS.high_max) severity = "CRITICAL";
@@ -202,6 +207,7 @@ export function evaluateRisk(signals: RiskSignals): RiskResult {
     if (low.length) parts.push(`Mitigating factors: ${low.map((f) => String(f.signal).replace(/_/g, " ")).join(", ")}.`);
   }
   if (ruleTriggers.length) parts.push(`Rules triggered: ${ruleTriggers.join(", ")}.`);
+  if (signals.no_speech) parts.push("No speech detected in this chunk.");
 
   return {
     score,

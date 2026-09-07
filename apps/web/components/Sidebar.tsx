@@ -76,13 +76,20 @@ export default function Sidebar({
         <div>
           {/* Logo */}
           <div className="flex items-center gap-3 border-b border-line p-5">
-            <div className="rounded-xl border border-teal/30 bg-teal/10 p-2 text-teal">
-              <Hexagon className="size-5 fill-teal/20" strokeWidth={2.2} />
-            </div>
-            <div>
-              <h1 className="text-[15px] font-bold tracking-wider text-white">VOXVERITY</h1>
-              <p className="-mt-0.5 text-[10px] text-text-secondary">Voice Integrity</p>
-            </div>
+            <Link
+              href="/dashboard"
+              onClick={() => setIsOpen(false)}
+              aria-label="Go to dashboard home"
+              className="flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-teal/60"
+            >
+              <div className="rounded-xl border border-teal/30 bg-teal/10 p-2 text-teal">
+                <Hexagon className="size-5 fill-teal/20" strokeWidth={2.2} />
+              </div>
+              <div>
+                <h1 className="text-[15px] font-bold tracking-wider text-white">VOXVERITY</h1>
+                <p className="-mt-0.5 text-[10px] text-text-secondary">Voice Integrity</p>
+              </div>
+            </Link>
             <button
               onClick={() => setIsOpen(false)}
               aria-label="Close menu"

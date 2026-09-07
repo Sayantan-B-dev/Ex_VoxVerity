@@ -89,6 +89,31 @@ export async function getAiConfig() {
   return getJson("/v1/config");
 }
 
+export interface VoiceprintStatus {
+  enrolled: boolean;
+  name?: string;
+  created_at?: string;
+  chunk_count?: number;
+  duration_s?: number;
+  embedding_dim?: number;
+  model?: string;
+  path?: string;
+}
+
+/** Browser-safe: reads the enrolled voiceprint status from the AI service. */
+export async function getVoiceprintStatus(): Promise<VoiceprintStatus | null> {
+  try {
+    const res = await fetch(`${aiServiceBrowserUrl()}/v1/voiceprint/status`, {
+      signal: AbortSignal.timeout(5000),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as VoiceprintStatus;
+  } catch {
+    return null;
+  }
+}
+
 // ── Realtime WebSocket protocol (browser) ─────────────────────────────
 // Server: services/ai-service/app/realtime/routes.py + manager.py
 // Messages out: {type:'hello'} {type:'start_session',source} {type:'audio_chunk',sequence,audio_b64,encoding}

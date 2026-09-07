@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   Check,
+  ChartColumn,
   Copy,
   Loader2,
   Mic,
@@ -12,11 +13,15 @@ import {
   PhoneOff,
   Radio,
   Users,
+  X,
 } from "lucide-react";
 import { Card } from "./primitives";
 import LiveMonitoring from "./LiveMonitoring";
+import MicPicker from "./MicPicker";
+import SelfMonitor from "./SelfMonitor";
 import { usePresence } from "@/lib/presence";
 import { useCall } from "@/lib/call";
+import { useModelPreference } from "@/lib/model-settings";
 import { formatDuration } from "@/lib/format";
 
 function useElapsed(active: boolean) {
@@ -37,17 +42,27 @@ export default function LivePage() {
   const selfId = session?.user?.id;
   const { users, loading } = usePresence(selfId);
   const selfName = session?.user?.name ?? session?.user?.email ?? "User";
-  const call = useCall(selfId ? { id: selfId, name: selfName } : undefined);
+  const [micDeviceId, setMicDeviceId] = useState("");
+  const call = useCall(selfId ? { id: selfId, name: selfName } : undefined, { micDeviceId });
   const audioRef = useRef<HTMLAudioElement>(null);
   const callIdRef = useRef<string | undefined>(undefined);
   callIdRef.current = call.callId;
 
   const [joinCode, setJoinCode] = useState("");
   const [copied, setCopied] = useState(false);
+  const [model] = useModelPreference();
 
-  // Keep the hidden audio element bound to the remote stream — the creator
-  // hears the person who joined. That same remote stream is what the creator's
-  // dashboard analyzes (the joined person's voice, not the creator's own mic).
+  // Per-call chunk log (creator side) → call summary after hangup.
+  const [chunkLog, setChunkLog] = useState<Record<string, unknown>[]>([]);
+  const logCallIdRef = useRef<string | undefined>(undefined);
+  // Voice levels for the speaking indicators (creator monitors the joiner;
+  // the joiner monitors their own mic).
+  const [peerLevel, setPeerLevel] = useState(0);
+  const [selfLevel, setSelfLevel] = useState(0);
+
+  // Keep the hidden audio element bound to the remote stream — the host hears
+  // the caller. That same remote stream is what the host's dashboard analyzes
+  // (the caller's voice, never the host's own mic).
   useEffect(() => {
     if (audioRef.current && call.remoteStream) audioRef.current.srcObject = call.remoteStream;
   }, [call.remoteStream]);
@@ -63,10 +78,15 @@ export default function LivePage() {
   }, [selfId, call.status]);
 
   // Every analyzed 3s chunk of the JOINED person's voice (received over WebRTC)
-  // → server-side risk write-back.
+  // → server-side risk write-back + local accumulation for the call summary.
   const onChunk = (msg: Record<string, unknown>) => {
     const callId = callIdRef.current;
     if (!callId) return;
+    if (logCallIdRef.current !== callId) {
+      logCallIdRef.current = callId;
+      setChunkLog([]);
+    }
+    setChunkLog((prev) => [...prev.slice(-999), msg]);
     void fetch("/api/risk-events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -76,6 +96,33 @@ export default function LivePage() {
 
   const elapsed = useElapsed(call.status === "active");
   const showRoomControls = call.status === "idle" || call.status === "ended" || call.status === "failed";
+
+  const monitoredSpeaking = (call.isHost ? peerLevel : selfLevel) > 0.03;
+
+  // Roll-up of the analyzed chunks for the post-call summary.
+  const summary = useMemo(() => {
+    if (!chunkLog.length) return null;
+    const num = (v: unknown) => (typeof v === "number" ? v : undefined);
+    const avg = (arr: number[]) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null);
+    const risks = chunkLog.map((r) => num((r.risk as { score?: unknown } | undefined)?.score) ?? 0);
+    const spoofs = chunkLog
+      .map((r) => num((r.spoof_detection as { normalized_score?: unknown } | undefined)?.normalized_score))
+      .filter((v): v is number => v != null);
+    const sims = chunkLog
+      .map((r) => num((r.speaker_verification as { similarity?: unknown } | undefined)?.similarity))
+      .filter((v): v is number => v != null);
+    const acoustics = chunkLog.map((r) => num(r.acoustic_anomaly)).filter((v): v is number => v != null);
+    const highChunks = risks.filter((r) => r >= 51).length;
+    return {
+      chunks: chunkLog.length,
+      avgRisk: avg(risks) ?? 0,
+      maxRisk: Math.max(...risks),
+      highChunks,
+      avgSpoof: avg(spoofs),
+      avgSim: sims.length ? sims.reduce((a, b) => a + b, 0) / sims.length : null,
+      avgAcoustic: avg(acoustics),
+    };
+  }, [chunkLog]);
 
   async function copyCode() {
     if (!call.roomCode) return;
@@ -106,8 +153,8 @@ export default function LivePage() {
         {call.status === "active" && (
           <span className="inline-flex items-center gap-2 rounded-full bg-neon/12 px-3 py-1.5 font-mono text-[12px] font-semibold text-neon">
             <span className="size-2 animate-pulse rounded-full bg-neon" />
-            {call.isCaller
-              ? `ANALYZING ${(call.peer?.name ?? "THE OTHER PERSON").toUpperCase()}'S VOICE`
+            {call.isHost
+              ? `MONITORING ${(call.peer?.name ?? "THE CALLER").toUpperCase()}'S VOICE`
               : "YOUR VOICE IS BEING ANALYZED"} · {formatDuration(elapsed)}
           </span>
         )}
@@ -118,6 +165,15 @@ export default function LivePage() {
         <div className="mb-4 flex items-center gap-2">
           <Phone className="size-5 text-teal" />
           <h2 className="text-[17px] font-semibold">Protected call rooms</h2>
+        </div>
+
+        {/* Mic selection — each browser picks its own input device */}
+        <div className="mb-4 flex flex-col gap-1.5 rounded-xl border border-line bg-elev px-4 py-3">
+          <p className="text-[12px] font-semibold">Your microphone</p>
+          <MicPicker value={micDeviceId} onChange={setMicDeviceId} />
+          <p className="text-[11px] text-text-disabled">
+            Applies when the call starts. Pick distinct mics when testing two browsers on one PC.
+          </p>
         </div>
 
         {showRoomControls && (
@@ -165,14 +221,15 @@ export default function LivePage() {
         {/* Waiting for a peer — show the code (creator) or joining state (joiner) */}
         {call.status === "calling" && (
           <div className="flex flex-col items-center rounded-xl border border-teal/30 bg-teal/5 p-6 text-center">
-            {call.isCaller ? (
+            {call.isHost ? (
               <>
                 <p className="text-[12px] uppercase tracking-widest text-text-secondary">Your room code</p>
                 <p className="mt-2 font-mono text-[42px] font-bold leading-none tracking-[0.3em] text-teal">
                   {call.roomCode}
                 </p>
                 <p className="mt-3 text-[12px] text-text-secondary">
-                  Share this code — the other person joins from Live Monitor → “Join with code”.
+                  Share this code — the caller joins from Live Monitor → “Join with code”, and their
+                  voice is integrity-checked on your dashboard.
                 </p>
                 <div className="mt-4 flex items-center gap-2">
                   <button
@@ -224,16 +281,32 @@ export default function LivePage() {
             </div>
             <div className="min-w-0">
               <p className="truncate text-[15px] font-semibold">
-                {call.isCaller
+                {call.isHost
                   ? call.peer
-                    ? `On call with ${call.peer.name}`
-                    : "On call — peer connected"
-                  : `On call with ${call.peer?.name ?? "room creator"}`}
+                    ? `Monitoring ${call.peer.name}'s call`
+                    : "On call — caller connected"
+                  : `On call with ${call.peer?.name ?? "room host"}`}
+                <span
+                  className={`ml-2 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold ${
+                    monitoredSpeaking ? "bg-neon/15 text-neon" : "bg-elev text-text-disabled"
+                  }`}
+                >
+                  <span
+                    className={`size-1.5 rounded-full ${monitoredSpeaking ? "animate-pulse bg-neon" : "bg-text-disabled/50"}`}
+                  />
+                  {call.isHost
+                    ? monitoredSpeaking
+                      ? "CALLER SPEAKING"
+                      : "CALLER SILENT"
+                    : monitoredSpeaking
+                      ? "YOU'RE SPEAKING"
+                      : "YOU'RE SILENT"}
+                </span>
               </p>
               <p className="font-mono text-[12px] text-text-secondary">
-                {call.isCaller
-                  ? `Analyzing ${call.peer?.name ?? "the other person"}'s voice in 3s chunks — your own mic only feeds the call, never analyzed.`
-                  : "Your voice is being analyzed by the room creator in 3s chunks — your mic also feeds the call audio."}
+                {call.isHost
+                  ? `Analyzing the caller's voice in 3s chunks — your own mic only feeds the call, never analyzed.`
+                  : "Your voice is being analyzed by the room host in 3s chunks — your mic also feeds the call audio."}
               </p>
             </div>
           </div>
@@ -259,15 +332,80 @@ export default function LivePage() {
         </Card>
       )}
 
-      {/* Creator-side analysis — analyzes the JOINED person's voice (remote
-          WebRTC stream), never the creator's own microphone. */}
-      {call.isCaller && call.status === "active" && (
+      {/* Host-side analysis — analyzes the CALLER's voice (their remote WebRTC
+          stream), never the host's own microphone. */}
+      {call.isHost && call.status === "active" && (
         <LiveMonitoring
           autoStart
           remoteStream={call.remoteStream}
           subjectName={call.peer?.name}
           onChunk={onChunk}
+          model={model}
+          onLevel={setPeerLevel}
         />
+      )}
+
+      {/* Caller self-monitor (limited) — their own mic level only, nothing analyzed here. */}
+      {!call.isHost && call.status === "active" && (
+        <SelfMonitor stream={call.localStream} onLevel={setSelfLevel} />
+      )}
+
+      {/* Call summary after hangup (host side) */}
+      {call.isHost && call.status === "ended" && summary && (
+        <Card className="p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <ChartColumn className="size-5 text-teal" />
+              <h2 className="text-[17px] font-semibold">Call summary</h2>
+              <span className="font-mono text-[11px] text-text-secondary">
+                ≈{formatDuration(summary.chunks * 3)} analyzed · {(call.peer?.name ?? "the caller")}&apos;s voice
+              </span>
+            </div>
+            <button
+              onClick={() => setChunkLog([])}
+              className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] text-text-secondary transition-colors hover:text-text-primary"
+            >
+              <X className="size-3.5" /> Dismiss
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            {[
+              { label: "Chunks analyzed", value: String(summary.chunks) },
+              {
+                label: "Avg risk",
+                value: `${summary.avgRisk}/100`,
+                tone: summary.avgRisk >= 51 ? "text-critical" : summary.avgRisk >= 26 ? "text-warn" : "text-neon",
+              },
+              {
+                label: "Peak risk",
+                value: `${summary.maxRisk}/100`,
+                tone: summary.maxRisk >= 51 ? "text-critical" : "text-text-primary",
+              },
+              { label: "HIGH+ chunks", value: String(summary.highChunks) },
+              {
+                label: "Avg speaker match",
+                value: summary.avgSim != null ? `${(summary.avgSim * 100).toFixed(0)}%` : "no voiceprint",
+                tone: summary.avgSim != null && summary.avgSim >= 0.7 ? "text-neon" : "text-text-primary",
+              },
+              {
+                label: "Avg spoof (bona fide)",
+                value: summary.avgSpoof != null ? `${summary.avgSpoof}%` : "—",
+              },
+            ].map((m) => (
+              <div key={m.label}>
+                <p className="text-[11px] uppercase tracking-wide text-text-disabled">{m.label}</p>
+                <p className={`mt-0.5 font-mono text-[15px] font-semibold ${m.tone ?? "text-text-primary"}`}>{m.value}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-[12px] text-text-secondary">
+            {summary.avgSim != null && summary.avgSim < 0.7
+              ? "The joined person's voice did not match the enrolled voiceprint — flag for review."
+              : summary.avgRisk >= 51
+                ? "High-risk call — review the alerts and create an incident if needed."
+                : "No high-risk signal during this call."}
+          </p>
+        </Card>
       )}
 
       {/* Who's online */}

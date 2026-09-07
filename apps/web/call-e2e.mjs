@@ -124,15 +124,15 @@ try {
   await B.typeInto('input[placeholder="K7F2P9"]', code);
   await B.clickByText("Join");
 
-  const aActive = await A.waitFor(`document.body.innerText.includes("ANALYZING") || document.body.innerText.includes("On call with")`, 30000, "A active");
+  const aActive = await A.waitFor(`document.body.innerText.includes("MONITORING") || document.body.innerText.includes("On call with")`, 30000, "A active");
   const bActive = await B.waitFor(`document.body.innerText.includes("YOUR VOICE IS BEING ANALYZED") || document.body.innerText.includes("On call with")`, 30000, "B active");
   check("A reached active call state", aActive === true);
   check("B reached active call state", bActive === true);
 
-  // The creator's dashboard must show it is analyzing the JOINED person's voice
+  // The host's dashboard must show it is monitoring the JOINED person's voice
   // (remote WebRTC stream), not its own mic.
-  const aAnalyzingPeer = await A.waitFor(`document.body.innerText.includes("ANALYZING JOINER BOB'S VOICE")`, 15000, "A analyzing peer voice");
-  check("A dashboard analyzes the joined person's voice", aAnalyzingPeer === true);
+  const aAnalyzingPeer = await A.waitFor(`document.body.innerText.includes("MONITORING JOINER BOB'S VOICE")`, 15000, "A monitoring peer voice");
+  check("A dashboard monitors the caller's voice", aAnalyzingPeer === true);
   const bToldAnalyzed = await B.waitFor(`document.body.innerText.includes("YOUR VOICE IS BEING ANALYZED")`, 15000, "B told voice is analyzed");
   check("B is told its voice is being analyzed", bToldAnalyzed === true);
 

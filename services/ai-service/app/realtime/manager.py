@@ -52,9 +52,10 @@ class SessionState:
 class RealtimeSession:
     """A single realtime audio session."""
 
-    def __init__(self, session_id: str, source: str = "microphone"):
+    def __init__(self, session_id: str, source: str = "microphone", model: str = "aasist_voiceprint"):
         self.session_id = session_id
         self.source = source
+        self.model = model
         self.state = SessionState.IDLE
         self.created_at = time.time()
         self.last_chunk_at: Optional[float] = None
@@ -113,6 +114,7 @@ class RealtimeSession:
         return {
             "session_id": self.session_id,
             "source": self.source,
+            "model": self.model,
             "state": self.state,
             "created_at": self.created_at,
             "last_chunk_at": self.last_chunk_at,
@@ -160,6 +162,8 @@ class WebSocketManager:
             await self._handle_hello(session_id, data)
         elif msg_type == "start_session":
             await self._handle_start_session(session_id, data)
+        elif msg_type == "set_model":
+            await self._handle_set_model(session_id, data)
         elif msg_type == "stop_session":
             await self._handle_stop_session(session_id)
         elif msg_type == "ping":
@@ -185,13 +189,33 @@ class WebSocketManager:
         session = self.sessions.get(session_id)
         if session:
             source = data.get("source", "microphone")
+            model = data.get("model", "aasist_voiceprint")
+            if model not in ("aasist_voiceprint", "aasist", "heuristic"):
+                model = "aasist_voiceprint"
             session.source = source
+            session.model = model
             session.start()
             await self._send_to_session(session_id, {
                 "type": "session_started",
                 "session_id": session_id,
                 "source": source,
+                "model": model,
             })
+
+    async def _handle_set_model(self, session_id: str, data: dict):
+        """Switch the analysis model mid-session."""
+        session = self.sessions.get(session_id)
+        if not session:
+            await self._send_error(session_id, "Session not found")
+            return
+        model = data.get("model", "aasist_voiceprint")
+        if model not in ("aasist_voiceprint", "aasist", "heuristic"):
+            model = "aasist_voiceprint"
+        session.model = model
+        await self._send_to_session(session_id, {
+            "type": "model_set",
+            "model": model,
+        })
 
     async def _handle_stop_session(self, session_id: str):
         """Handle stop_session message."""
@@ -280,9 +304,11 @@ class WebSocketManager:
     async def _send(self, websocket: WebSocket, data: dict):
         """Send JSON message to WebSocket."""
         try:
+            if websocket.client_state.name != "CONNECTED":
+                return  # socket already closing/closed — nothing to send
             await websocket.send_json(data)
         except Exception as e:
-            logger.error(f"Failed to send WebSocket message: {e}")
+            logger.debug(f"Failed to send WebSocket message: {e}")
 
     async def _send_error(self, session_id: str, message: str):
         """Send error message to session."""

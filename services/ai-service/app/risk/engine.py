@@ -198,6 +198,11 @@ class RiskEngine:
         # Clamp to 0-100
         score = max(0, min(100, round(base_risk)))
 
+        # No-speech gate: silence / very low energy chunks are not evidence of
+        # fraud — keep them LOW so idle chunks don't spike the meter.
+        if signals.get("no_speech"):
+            score = min(score, 8)
+
         # Determine severity
         severity = "LOW"
         if score > thresholds["high_max"]:
@@ -211,7 +216,13 @@ class RiskEngine:
         recommendation = self._get_recommendation(severity, rule_triggers)
 
         # Explanation
-        explanation = self._generate_explanation(score, severity, contributing_factors, rule_triggers)
+        explanation = self._generate_explanation(
+            score,
+            severity,
+            contributing_factors,
+            rule_triggers,
+            no_speech=bool(signals.get("no_speech")),
+        )
 
         return {
             "score": score,
@@ -306,6 +317,7 @@ class RiskEngine:
         severity: str,
         factors: list,
         triggers: list,
+        no_speech: bool = False,
     ) -> str:
         """Generate human-readable explanation of risk assessment."""
         parts = [f"Risk score: {score}/100 ({severity})."]
@@ -325,6 +337,9 @@ class RiskEngine:
 
         if triggers:
             parts.append(f"Rules triggered: {', '.join(triggers)}.")
+
+        if no_speech:
+            parts.append("No speech detected in this chunk.")
 
         return " ".join(parts)
 

@@ -37,6 +37,7 @@ export async function POST(req: Request) {
   // ── 1. Recompute risk from the AI service's per-signal fields ────────────
   const risk = result.risk as Partial<RiskResult> | undefined;
   const signals: RiskSignals = {
+    no_speech: result.no_speech === true,
     spoof_detection: (result.spoof_detection as RiskSignals["spoof_detection"]) ?? {
       normalized_score: risk?.score !== undefined ? 100 - risk.score : undefined,
       fallback: true,

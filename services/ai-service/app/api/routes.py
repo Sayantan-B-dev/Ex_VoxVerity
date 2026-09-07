@@ -7,6 +7,7 @@ from app.dsp.analyzer import decode_wav_pcm, compute_metrics, quality_flags
 from app.dsp.human_pattern import analyze_human_pattern
 from app.models.aasist_wrapper import get_aasist
 from app.models.ecapa_wrapper import get_ecapa
+from app.models.voiceprint import get_voiceprint
 from app.analysis.aggregator import get_aggregator
 from app.risk.engine import get_risk_engine
 from app.risk.alerts import get_alert_service
@@ -401,6 +402,7 @@ async def get_model_registry_entry(model_id: str):
 async def list_models():
     aasist = get_aasist()
     ecapa = get_ecapa()
+    voiceprint = get_voiceprint()
     return {
         "models": [
             {
@@ -422,8 +424,16 @@ async def list_models():
                 "error": ecapa.status["error"],
                 "enrollment_count": ecapa.status["enrollment_count"],
             },
-        ]
+        ],
+        "voiceprint": voiceprint.status,
     }
+
+
+@router.get("/voiceprint/status")
+async def voiceprint_status():
+    """Status of the enrolled speaker voiceprint (drives the Settings Model tab)."""
+    voiceprint = get_voiceprint()
+    return voiceprint.status
 
 
 @router.get("/languages")

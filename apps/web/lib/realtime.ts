@@ -69,6 +69,13 @@ export interface LiveChunk {
   humanQuality?: string;
   /** 0-100 acoustic anomaly (higher = more anomalous). */
   acousticAnomaly?: number;
+  /** 0-1 cosine similarity to the enrolled voiceprint. */
+  speakerSimilarity?: number;
+  speakerMatch?: boolean;
+  speakerConfidence?: string;
+  speakerName?: string;
+  /** true when the chunk contained no speech (silence gate). */
+  noSpeech?: boolean;
   dsp?: Record<string, number>;
   rms?: number;
   spectralCentroid?: number;
@@ -110,6 +117,10 @@ export function useRealtimeMic(opts?: {
   chunkMs?: number;
   /** External audio source to analyze instead of this browser's mic. */
   stream?: MediaStream | null;
+  /** When true, `stream` is mandatory — never fall back to this browser's mic. */
+  requireStream?: boolean;
+  /** Client-selected analysis model (sent with start_session). */
+  model?: string;
   /** Fired with each analysis result so the caller can persist/recompute risk server-side. */
   onResult?: (msg: Record<string, unknown>) => void;
 }) {
@@ -160,7 +171,7 @@ export function useRealtimeMic(opts?: {
 
       ws.onopen = () => {
         ws.send(JSON.stringify({ type: "hello" }));
-        ws.send(JSON.stringify({ type: "start_session", source: opts?.source ?? "microphone" }));
+        ws.send(JSON.stringify({ type: "start_session", source: opts?.source ?? "microphone", model: opts?.model ?? "aasist_voiceprint" }));
       };
       ws.onmessage = (ev) => {
         try {
@@ -181,6 +192,10 @@ export function useRealtimeMic(opts?: {
             const acoustic =
               (r.acoustic_anomaly as number | undefined) ??
               computeAcousticAnomaly(dsp, r.quality_flags as Record<string, unknown> | undefined);
+            const spk = r.speaker_verification as
+              | { similarity?: number; match?: boolean; confidence?: string; enrolled_name?: string }
+              | undefined;
+            const noSpeech = r.no_speech === true;
 
             const seq = r.sequence as number | undefined;
             const latency =
@@ -203,6 +218,11 @@ export function useRealtimeMic(opts?: {
                 humanDesc: human?.description,
                 humanQuality: human?.quality,
                 acousticAnomaly: acoustic,
+                speakerSimilarity: spk?.similarity,
+                speakerMatch: spk?.match,
+                speakerConfidence: spk?.confidence,
+                speakerName: spk?.enrolled_name,
+                noSpeech,
                 dsp,
                 rms: dsp.rms_energy,
                 spectralCentroid: dsp.spectral_centroid_hz,
@@ -234,6 +254,12 @@ export function useRealtimeMic(opts?: {
       // Audio source: this browser's mic, or an external stream (peer voice).
       const external = opts?.stream ?? null;
       if (!external) {
+        if (opts?.requireStream) {
+          // Never analyze this browser's mic when a peer stream is required.
+          setError("The caller's audio stream is not available yet — waiting…");
+          setState("error");
+          return;
+        }
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         refs.current.stream = stream;
         refs.current.external = false;

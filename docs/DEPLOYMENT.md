@@ -3,6 +3,11 @@
 **Version:** 0.1.0
 **Last Updated:** September 2026
 
+> **New: free-tier production deployment** — see [`docs/deployment/`](deployment/README.md)
+> for an extremely detailed, 100% free walkthrough (Supabase + Vercel + Render)
+> including env vars, CORS/WS setup, and troubleshooting. This file covers
+> local development.
+
 ---
 
 ## Architecture Overview

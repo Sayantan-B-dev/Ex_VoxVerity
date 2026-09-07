@@ -9,6 +9,7 @@ from app.core.rate_limit import RateLimitMiddleware
 from app.core.ws_auth import configure_ws_security
 from app.models.aasist_wrapper import get_aasist
 from app.models.ecapa_wrapper import get_ecapa
+from app.models.voiceprint import get_voiceprint
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,12 @@ async def load_models():
         logger.info("ECAPA-TDNN model loaded successfully")
     else:
         logger.warning(f"ECAPA-TDNN model not loaded: {ecapa.status['error']}")
+
+    voiceprint = get_voiceprint()
+    if voiceprint.is_enrolled():
+        logger.info(f"Voiceprint ready: {voiceprint.status['name']} ({voiceprint.status['chunk_count']} segments)")
+    else:
+        logger.info("No voiceprint enrolled — run scripts/train_voiceprint.py to train one")
 
 
 @app.get("/health")

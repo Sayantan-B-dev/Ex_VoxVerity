@@ -14,3 +14,6 @@ scipy>=1.10.0
 
 # Phase 24: Speaker embeddings
 speechbrain>=1.0.0
+
+# Voiceprint trainer app (scripts/train_voiceprint.py)
+sounddevice>=0.4.6

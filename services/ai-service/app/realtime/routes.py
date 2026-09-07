@@ -19,6 +19,7 @@ from app.realtime.manager import get_ws_manager
 from app.dsp.analyzer import compute_metrics, quality_flags
 from app.dsp.human_pattern import analyze_human_pattern
 from app.models.aasist_wrapper import get_aasist
+from app.models.voiceprint import get_voiceprint
 from app.risk.engine import get_risk_engine
 from app.risk.alerts import get_alert_service
 from app.core.ws_auth import (
@@ -193,7 +194,7 @@ async def _process_chunks_loop(session_id: str):
         chunk = session.get_next_chunk()
         if chunk:
             try:
-                result = await _analyze_chunk(chunk, session.source)
+                result = await _analyze_chunk(chunk, session.source, session.model)
                 await manager.send_analysis_result(session_id, result)
 
                 # Check if risk threshold crossed and create alert
@@ -222,8 +223,20 @@ async def _process_chunks_loop(session_id: str):
             await asyncio.sleep(0.1)
 
 
-async def _analyze_chunk(chunk: dict, source: str) -> dict:
-    """Analyze a single audio chunk."""
+async def _analyze_chunk(chunk: dict, source: str, model: str = "aasist_voiceprint") -> dict:
+    """Analyze a single audio chunk.
+
+    Args:
+        chunk: Decoded chunk with `audio_b64` and `sequence`.
+        source: Session source label (microphone / remote_call_audio).
+        model: Client-selected analysis model:
+            - "aasist_voiceprint": AASIST-L + speaker verification (default)
+            - "aasist":            AASIST-L only
+            - "heuristic":         Fast DSP heuristic only (no models)
+
+    The chunk is gated on voice activity: silent chunks report `no_speech` and
+    a LOW risk instead of spiking the meter on silence.
+    """
     # Decode base64 audio
     audio_b64 = chunk.get("audio_b64", "")
     if not audio_b64:
@@ -271,19 +284,41 @@ async def _analyze_chunk(chunk: dict, source: str) -> dict:
     # Compute human pattern
     human_pattern = analyze_human_pattern(metrics)
 
-    # Run spoof detection
+    # Voice-activity gate: silent chunks are not evidence of fraud.
+    silence_ratio = float(metrics.get("silence_ratio", 0))
+    low_energy = bool(flags.get("low_energy"))
+    no_speech = low_energy or silence_ratio > 0.85
+
+    # Run spoof detection (client-selectable: real model or heuristic)
     aasist = get_aasist()
     audio_np = np.array(samples, dtype=np.float32)
-    spoof_result = aasist.predict(audio_np)
+    use_model = model != "heuristic"
+    spoof_result = aasist.predict(audio_np, use_model=use_model)
 
-    # Run risk engine
-    risk_engine = get_risk_engine()
-    risk_result = risk_engine.evaluate({
+    signals = {
         "spoof_detection": spoof_result,
         "human_pattern": human_pattern,
         "quality_flags": flags,
         "dsp_metrics": metrics,
-    })
+    }
+
+    # Speaker verification against the enrolled voiceprint (when present and
+    # the chunk contains speech). This is what powers the "Speaker Similarity"
+    # panel — the trained voice gets high similarity, anyone else low.
+    speaker_verification = None
+    if model != "heuristic" and not no_speech:
+        voiceprint = get_voiceprint()
+        if voiceprint.is_enrolled():
+            speaker_verification = voiceprint.verify(audio_np)
+            if speaker_verification:
+                signals["speaker_verification"] = speaker_verification
+
+    if no_speech:
+        signals["no_speech"] = True
+
+    # Run risk engine
+    risk_engine = get_risk_engine()
+    risk_result = risk_engine.evaluate(signals)
 
     return {
         "sequence": chunk["sequence"],
@@ -291,6 +326,8 @@ async def _analyze_chunk(chunk: dict, source: str) -> dict:
         "quality_flags": flags,
         "human_pattern": human_pattern,
         "spoof_detection": spoof_result,
+        "speaker_verification": speaker_verification,
+        "no_speech": no_speech,
         "acoustic_anomaly": risk_result.get("acoustic_anomaly"),
         "risk": risk_result,
         "source": source,

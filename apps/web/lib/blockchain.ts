@@ -15,6 +15,14 @@ import { JsonRpcProvider, Wallet, Contract, type TransactionReceipt } from "ethe
 export const BLOCKCHAIN_NETWORK = "polygon-amoy";
 export const BLOCKCHAIN_CHAIN_ID = 80002;
 
+// Passing the known network alongside staticNetwork:true makes ethers skip
+// eth_chainId detection entirely (staticNetwork alone with an undefined network
+// still triggers detection, which retries forever when the RPC is unreachable).
+const POLYGON_AMOY: { name: string; chainId: number } = {
+  name: BLOCKCHAIN_NETWORK,
+  chainId: BLOCKCHAIN_CHAIN_ID,
+};
+
 const ABI = [
   "function registerEvidence(bytes32 evidenceHash, bytes32 recordId, uint64 createdAt) external",
   "function getEvidence(bytes32 recordId) external view returns (bytes32 evidenceHash, uint64 createdAt, address registrar)",
@@ -65,9 +73,10 @@ export async function registerEvidenceOnChain(
     return { ok: false, status: "not_configured", message: "BLOCKCHAIN_RPC_URL / BLOCKCHAIN_PRIVATE_KEY / VOICE_REGISTRY_ADDRESS not set" };
   }
   try {
-    // staticNetwork: true skips network detection so an unreachable RPC fails
-    // fast instead of retrying forever (the "failed to detect network" spam).
-    const provider = new JsonRpcProvider(cfg.rpcUrl, undefined, { staticNetwork: true });
+    // staticNetwork + known network skips eth_chainId detection so an
+    // unreachable RPC fails fast instead of retrying forever (the
+    // "failed to detect network" spam).
+    const provider = new JsonRpcProvider(cfg.rpcUrl, POLYGON_AMOY, { staticNetwork: true });
     const wallet = new Wallet(cfg.privateKey!, provider);
     const contract = new Contract(cfg.contractAddress!, ABI, wallet);
     const createdAtUnix = Math.floor(createdAt.getTime() / 1000);
@@ -105,7 +114,7 @@ export async function verifyEvidenceOnChain(
     return { ok: false, status: "not_configured", message: "Blockchain not configured" };
   }
   try {
-    const provider = new JsonRpcProvider(cfg.rpcUrl, undefined, { staticNetwork: true });
+    const provider = new JsonRpcProvider(cfg.rpcUrl, POLYGON_AMOY, { staticNetwork: true });
     const contract = new Contract(cfg.contractAddress!, ABI, provider);
     const valid = await contract.verifyEvidence(toBytes32(recordId), toBytes32(expectedHash));
     return { ok: true, status: "verified", valid: Boolean(valid) };

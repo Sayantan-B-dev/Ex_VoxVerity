@@ -33,21 +33,35 @@ const RTC_CONFIG: RTCConfiguration = {
  *
  * The room code is the access control — the code lives on the calls row and
  * call.id (a UUID) is the WebRTC signaling room id, so both parties reach the
- * same signaling room. Both mics feed the peer call. The CREATOR (caller) has
- * the dashboard, and it analyzes the JOINED person's voice — the joined
- * person's audio arrives at the creator as the remote WebRTC stream, which the
- * dashboard chunks to the AI service. The creator's own mic is never analyzed.
+ * same signaling room. Both mics feed the peer call.
+ *
+ * ROLE MODEL (do not mix up):
+ *   - The person who CREATES the room is the HOST (isHost=true). They are the
+ *     RECEIVER/monitor: their dashboard analyzes the OTHER person's voice.
+ *   - The person who JOINS is the CALLER (isHost=false). THEIR voice is the
+ *     one integrity-checked. The host's dashboard chunks the caller's audio
+ *     (received over WebRTC as the remote stream) to the AI service.
+ *   - The host's own mic is only for the call audio — never analyzed.
+ *
+ * Optionally pass `micDeviceId` so each browser can pick which microphone to
+ * use (essential when testing two browsers on the same machine).
  */
-export function useCall(self: { id: string; name: string } | null | undefined) {
+export function useCall(
+  self: { id: string; name: string } | null | undefined,
+  opts?: { micDeviceId?: string }
+) {
   const selfId = self?.id;
   const selfName = self?.name;
+  const micDeviceIdRef = useRef<string | undefined>(opts?.micDeviceId);
+  micDeviceIdRef.current = opts?.micDeviceId;
 
   const [status, setStatus] = useState<CallStatus>("idle");
   const [peer, setPeer] = useState<CallPeer | null>(null);
-  const [isCaller, setIsCaller] = useState(false);
+  const [isHost, setIsHost] = useState(false);
   const [roomCode, setRoomCode] = useState<string | undefined>();
   const [callId, setCallId] = useState<string | undefined>();
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,12 +70,12 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
   const localRef = useRef<MediaStream | null>(null);
   const remoteRef = useRef<MediaStream | null>(null);
   const statusRef = useRef<CallStatus>("idle");
-  const isCallerRef = useRef(false);
+  const isHostRef = useRef(false);
   const callIdRef = useRef<string | undefined>(undefined);
   const mutedRef = useRef(false);
 
   statusRef.current = status;
-  isCallerRef.current = isCaller;
+  isHostRef.current = isHost;
   callIdRef.current = callId;
 
   const cleanup = useCallback(() => {
@@ -86,13 +100,14 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
     localRef.current = null;
     remoteRef.current = null;
     setRemoteStream(null);
+    setLocalStream(null);
   }, []);
 
   const reset = useCallback(() => {
     cleanup();
     setStatus("idle");
     setPeer(null);
-    setIsCaller(false);
+    setIsHost(false);
     setRoomCode(undefined);
     setCallId(undefined);
     setMuted(false);
@@ -115,8 +130,28 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
       }
       remoteRef.current.addTrack(e.track);
     };
-    const local = await navigator.mediaDevices.getUserMedia({ audio: true });
+    let local: MediaStream;
+    try {
+      const deviceId = micDeviceIdRef.current;
+      local = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
+    } catch (e) {
+      const deviceId = micDeviceIdRef.current;
+      const msg = deviceId
+        ? `Could not open the selected microphone. Pick another device or allow mic permission.`
+        : "Microphone access denied or unavailable. Allow mic permission or pick a different device.";
+      setError(msg + (e instanceof Error ? ` (${e.name})` : ""));
+      setStatus("failed");
+      cleanup();
+      throw e;
+    }
     localRef.current = local;
+    setLocalStream(local);
     local.getTracks().forEach((t) => pc.addTrack(t, local));
     if (role === "caller") {
       const offer = await pc.createOffer();
@@ -222,7 +257,7 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
       }
       setCallId(data.call_id as string);
       setRoomCode(data.room_code as string);
-      setIsCaller(true);
+      setIsHost(true);
       setStatus("calling");
       void openSignaling(data.call_id as string, "caller");
       return data.room_code as string;
@@ -250,10 +285,10 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
       }
       setCallId(data.call_id as string);
       setRoomCode(data.room_code as string);
-      setIsCaller(false);
+      setIsHost(false);
       setPeer({
         id: "",
-        name: (data.creator_name as string) ?? "Room creator",
+        name: (data.creator_name as string) ?? "Room host",
         email: "",
       });
       setStatus("calling");
@@ -301,10 +336,11 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
   return {
     status,
     peer,
-    isCaller,
+    isHost,
     roomCode,
     callId,
     remoteStream,
+    localStream,
     error,
     createRoom,
     joinRoom,

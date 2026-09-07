@@ -3,14 +3,23 @@
 Runs the official AASIST-L anti-spoofing model (ONNX export from
 https://huggingface.co/SpeechAntiSpoofingBenchmarks/AASIST-L) through
 onnxruntime. Input: `wav` (batch, 64600) float32 at 16 kHz → output:
-`logits` (batch, 2) where class 1 = bona fide (higher = more natural).
+`logits` (batch, 2).
+
+CLASS SEMANTICS (empirically verified against real speech, TTS, tones):
+  logits[:, 0] = bona fide (real speech fires class 0; see upstream
+  SpeechAntiSpoofingBenchmarks `aasist_l.py` `score_batch`) — the Arena score
+  is the bona-fide logit, and empirically class 0 dominates for natural speech
+  while silence is near-coin-flip (uncertain). Class 1 is the spoof side.
 
 When the ONNX model file or onnxruntime is unavailable, predict() falls back
 to a DSP-feature heuristic so the pipeline keeps working (labeled
-fallback=True).
+fallback=True). Pass `use_model=False` to force the heuristic path (the
+client-selectable "fast heuristic" model).
 
 IMPORTANT: This is a model signal, not an absolute fraud verdict.
 The UI must label it as "model score" or "spoof signal", not "probability".
+Out-of-domain audio (tones, noise, re-recorded playback) can score as
+bona fide — combine with speaker verification and acoustic analysis.
 """
 
 import os
@@ -83,8 +92,13 @@ class AASISTWrapper:
             logger.error(self._load_error)
             return False
 
-    def predict(self, audio: np.ndarray) -> dict:
+    def predict(self, audio: np.ndarray, use_model: bool = True) -> dict:
         """Run AASIST-L inference on audio samples (16 kHz float32).
+
+        Args:
+            audio: 1D float32 samples at 16 kHz.
+            use_model: When False, force the DSP-feature heuristic path
+                (client-selectable "fast heuristic" model).
 
         Returns:
             {
@@ -97,17 +111,18 @@ class AASISTWrapper:
                 "error": str | None,
             }
         """
-        if not self._loaded or self.session is None:
+        if not use_model or not self._loaded or self.session is None:
             return self._heuristic_fallback(audio)
 
         try:
             x = self._prepare_audio(audio)
             logits = self.session.run(None, {"wav": x})[0]  # (1, 2)
 
-            # Softmax → class 1 is the bona fide class.
+            # Softmax → class 0 is the bona fide class (verified empirically:
+            # natural speech fires class 0; silence is near coin-flip).
             exp = np.exp(logits - np.max(logits, axis=1, keepdims=True))
             probs = exp / exp.sum(axis=1, keepdims=True)
-            bona_fide_score = float(probs[0, 1])
+            bona_fide_score = float(probs[0, 0])
             confidence = float(np.max(probs[0]))
 
             normalization = self.normalize_score(bona_fide_score)

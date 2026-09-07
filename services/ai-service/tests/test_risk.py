@@ -81,12 +81,13 @@ def test_boundary_critical():
     """Test CRITICAL severity boundary (76-100)."""
     engine = RiskEngine()
 
-    # All signals indicating very suspicious audio
+    # All signals indicating very suspicious audio (matching DEFAULT_POLICY
+    # weights — a single-factory acoustic anomaly keeps the anomaly high).
     signals = {
-        "spoof_detection": {"normalized_score": 5, "loaded": True, "fallback": False},
-        "human_pattern": {"score": 10},
-        "quality_flags": {"clipping_detected": True, "low_energy": True},
-        "dsp_metrics": {"dynamic_range_db": 3, "silence_ratio": 0.9},
+        "spoof_detection": {"normalized_score": 0, "loaded": True, "fallback": False},
+        "human_pattern": {"score": 0},
+        "quality_flags": {"clipping_detected": True},
+        "dsp_metrics": {"dynamic_range_db": 25, "silence_ratio": 0.3},
     }
 
     result = engine.evaluate(signals)
@@ -156,6 +157,25 @@ def test_score_bounds():
         result = engine.evaluate(signals)
         assert 0 <= result["score"] <= 100, f"Score out of range: {result['score']}"
     print(f"  Score bounds: all scores in 0-100 ✓")
+
+
+def test_no_speech_stays_low():
+    """Silent chunks must stay LOW even when signals look neutral/suspicious."""
+    engine = RiskEngine()
+
+    # Even with suspicious-looking neutral signals, no_speech must clamp to LOW.
+    signals = {
+        "spoof_detection": {"normalized_score": 40, "loaded": True, "fallback": False},
+        "human_pattern": {"score": 35},
+        "quality_flags": {"low_energy": True},
+        "dsp_metrics": {"dynamic_range_db": 2, "silence_ratio": 0.95},
+        "no_speech": True,
+    }
+    result = engine.evaluate(signals)
+    assert result["score"] <= 8, f"Expected LOW on silence, got {result['score']}"
+    assert result["severity"] == "LOW"
+    assert "No speech detected" in result["explanation"]
+    print(f"  no_speech: score={result['score']}, severity={result['severity']} ✓")
 
 
 def test_contribution_factors():
