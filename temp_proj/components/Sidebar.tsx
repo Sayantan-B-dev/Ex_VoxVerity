@@ -18,6 +18,7 @@ import {
   Plug,
   Radio,
   ScanSearch,
+  User,
   ScrollText,
   Settings,
   ShieldAlert,
@@ -33,6 +34,7 @@ const nav: { section: string; items: { href: string; label: string; icon: typeof
       { href: "/live", label: "Live Monitor", icon: Radio },
       { href: "/calls", label: "Calls", icon: Phone },
       { href: "/analysis", label: "Analysis", icon: Microscope },
+      { href: "/profile", label: "Profile", icon: User },
     ],
   },
   {

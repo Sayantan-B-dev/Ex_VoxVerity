@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Bell, Calendar, Menu, Search } from "lucide-react";
 
 export default function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
@@ -48,15 +49,15 @@ export default function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
           <span className="absolute right-1 top-1 size-2 rounded-full bg-critical" />
         </button>
 
-        <div className="flex items-center gap-2.5 border-l border-line pl-3">
+        <Link href="/profile" className="flex items-center gap-2.5 border-l border-line pl-3">
           <div className="flex size-7 items-center justify-center rounded-full border border-teal/40 bg-teal/20 text-xs font-bold text-teal">
-            A
+            S
           </div>
           <div className="hidden text-left sm:block">
-            <p className="text-xs font-semibold leading-none text-text-primary">Analyst</p>
-            <p className="mt-0.5 text-[9px] text-text-secondary">Security Operations</p>
+            <p className="text-xs font-semibold leading-none text-text-primary">Sayantan</p>
+            <p className="mt-0.5 text-[9px] text-text-secondary">Platform Owner</p>
           </div>
-        </div>
+        </Link>
       </div>
     </header>
   );

@@ -206,15 +206,15 @@ call in `apps/web/lib/*`, with **zero component changes**.
 - [x] `/alerts` + `/alerts/[alertId]`
 - [x] `/profile`
 - [x] `/settings` (soumya Settings)
-- [ ] settings sub-pages (profile/security/notifications/privacy/risk) — with Phase 7
+- [x] settings sub-pages (profile/security/notifications/privacy/risk)
 
 ### Phase 7 — Secondary protected routes
-- [ ] `/analysis` + `/analysis/[analysisId]`
-- [ ] `/incidents` + `/incidents/[incidentId]`
-- [ ] `/verification`, `/threat-intelligence`, `/analytics`, `/blockchain`, `/audit`
-- [ ] `/integrations`, `/models`
-- [ ] `/lab`, `/lab/audio`, `/lab/live`
-- [ ] `/admin` + `/admin/*` (users, organizations, roles, models, system)
+- [x] `/analysis` + `/analysis/[analysisId]`
+- [x] `/incidents` + `/incidents/[incidentId]`
+- [x] `/verification`, `/threat-intelligence`, `/analytics`, `/blockchain`, `/audit`
+- [x] `/integrations`, `/models`
+- [x] `/lab`, `/lab/audio`, `/lab/live`
+- [x] `/admin` + `/admin/*` (users, organizations, roles, models, system)
 
 ### Phase 8 — Verification
 - [ ] `npm install` succeeds
