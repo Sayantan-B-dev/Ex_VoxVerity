@@ -21,6 +21,7 @@ import Sonar from "./viz/Sonar";
 import Candles from "./viz/Candles";
 import type { SecurityAlert } from "@/lib/demo-data";
 import type { DashboardData } from "@/lib/data";
+import { useSupabaseTable } from "@/lib/realtime";
 
 function ControlBtn({
   children,
@@ -92,6 +93,7 @@ export default function Dashboard({
   const urgentCount = alerts.filter(
     (a) => a.severity === "CRITICAL" || a.severity === "HIGH",
   ).length;
+  const rt = useSupabaseTable("alerts");
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -132,7 +134,17 @@ export default function Dashboard({
                 showing demo data — connect Supabase for live data
               </span>
             )}
+            {rt.connected && (
+              <span className="ml-2 rounded bg-teal/15 px-1.5 py-0.5 font-mono text-[11px] text-teal">
+                realtime connected
+              </span>
+            )}
           </p>
+          {rt.last && (
+            <p className="font-mono text-[11px] text-teal">
+              live event: {rt.last.event} on alerts — refresh to see it in the feed
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <ControlBtn accent>

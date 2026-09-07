@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from "react";
 
+const round = (n: number, precision = 6) => {
+  const factor = 10 ** precision;
+  return Math.round(n * factor) / factor;
+};
+
+
 // Segmented radial tick gauge (Kyntra-style): a full ring of thin ticks
 // colored red -> amber -> green, with the portion up to `value` lit and
 // the remainder dimmed. Center shows the headline number.
@@ -48,10 +54,10 @@ export default function RiskMeter({
         {Array.from({ length: ticks }).map((_, i) => {
           const p = i / (ticks - 1);
           const ang = start + p * span;
-          const x1 = cx + inner * Math.cos(rad(ang));
-          const y1 = cy + inner * Math.sin(rad(ang));
-          const x2 = cx + outer * Math.cos(rad(ang));
-          const y2 = cy + outer * Math.sin(rad(ang));
+          const x1 = round(cx + inner * Math.cos(rad(ang)));
+          const y1 = round(cy + inner * Math.sin(rad(ang)));
+          const x2 = round(cx + outer * Math.cos(rad(ang)));
+          const y2 = round(cy + outer * Math.sin(rad(ang)));
           const on = i < activeCount;
           const color = colorAt(p);
           return (

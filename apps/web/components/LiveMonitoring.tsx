@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CircleDot, ShieldQuestion, TriangleAlert } from "lucide-react";
+import { CircleDot, ShieldQuestion, TriangleAlert, Mic, Square } from "lucide-react";
 import { Card } from "./primitives";
 import RiskMeter from "./RiskMeter";
 import Waveform from "./Waveform";
 import type { LiveSession } from "@/lib/demo-data";
-import { formatDuration, bandTag, bandTone } from "@/lib/format";
+import { formatDuration, bandTag, bandTone, riskBand } from "@/lib/format";
+import { useRealtimeMic, useSupabaseTable } from "@/lib/realtime";
 
 function useDuration(initial: number) {
   const [s, setS] = useState(initial);
@@ -69,6 +70,11 @@ export default function LiveMonitoring({
 }) {
   const duration = useDuration(session.durationSec);
   const acoustic = [0.4, 0.6, 0.9, 0.5, 0.95, 0.3, 0.85, 0.45];
+  const live = useRealtimeMic({ source: "microphone" });
+  const rtAlerts = useSupabaseTable("alerts");
+  const isLive = live.state === "live" && live.latest;
+  const risk = isLive ? live.latest!.risk : session.risk;
+  const severity = isLive ? live.latest!.severity : session.riskLevel;
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -85,10 +91,12 @@ export default function LiveMonitoring({
           </div>
           <div>
             <h1 className="text-[24px] font-bold tracking-tight sm:text-[28px]">
-              {session.caller}
+              {isLive ? "Live microphone capture" : session.caller}
             </h1>
             <p className="font-mono text-[13px] text-text-secondary">
-              {session.number} · {session.context}
+              {isLive
+                ? `session ${live.sessionId?.slice(0, 8)} · microphone · 16kHz`
+                : `${session.number} · ${session.context}`}
             </p>
           </div>
         </div>
@@ -99,15 +107,56 @@ export default function LiveMonitoring({
           </div>
           <span className="inline-flex items-center gap-2 rounded-full bg-neon/12 px-3 py-1.5 text-[13px] font-semibold text-neon">
             <span className="size-2 animate-pulse rounded-full bg-neon" />
-            {session.captureState}
+            {isLive ? "LIVE" : session.captureState}
           </span>
         </div>
       </Card>
 
-      {source === "demo" && (
+      {/* Live capture controls — real mic → AI-service WebSocket */}
+      <Card className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[14px] font-semibold">Realtime capture</p>
+          <p className="text-[12px] text-text-secondary">
+            {live.state === "live"
+              ? `Streaming chunk #${live.latest?.sequence} · avg risk ${live.avgRisk} · ${live.chunks.length} chunks analyzed`
+              : live.state === "connecting"
+                ? "Requesting microphone and opening AI-service WebSocket…"
+                : live.state === "error"
+                  ? (live.error ?? "Capture failed")
+                  : "Start your microphone to stream real audio to the AI service and see live risk."}
+          </p>
+          {rtAlerts.connected && (
+            <p className="mt-1 font-mono text-[11px] text-teal">supabase realtime: connected (alerts)</p>
+          )}
+          {rtAlerts.last && (
+            <p className="mt-1 font-mono text-[11px] text-text-secondary">
+              realtime event: {rtAlerts.last.event} on alerts
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          {live.state === "live" || live.state === "connecting" ? (
+            <button
+              onClick={live.stop}
+              className="inline-flex items-center gap-2 rounded-lg border border-critical/50 px-4 py-2 text-[13px] font-medium text-critical transition-colors hover:bg-critical/10"
+            >
+              <Square className="size-4" /> Stop capture
+            </button>
+          ) : (
+            <button
+              onClick={live.start}
+              className="inline-flex items-center gap-2 rounded-lg bg-teal px-4 py-2 text-[13px] font-semibold text-black transition-transform hover:scale-[1.02]"
+            >
+              <Mic className="size-4" /> Start live capture
+            </button>
+          )}
+        </div>
+      </Card>
+
+      {source === "demo" && !isLive && (
         <div className="rounded-lg border border-warn/40 bg-warn/10 px-4 py-2 text-[12px] text-warn">
-          Visualization mode — the realtime WebSocket client to the AI service is the next
-          backend link (see FRONTEND_MERGE_PLAN.md gap report).
+          Reference session shown — press “Start live capture” for real microphone analysis
+          via the AI-service WebSocket.
         </div>
       )}
 
@@ -119,11 +168,10 @@ export default function LiveMonitoring({
         <TriangleAlert className="size-6 shrink-0 text-critical" />
         <div className="flex-1">
           <p className="text-[15px] font-semibold">
-            ALERT: Possible AI-generated voice detected
+            {risk >= 51 ? "ALERT: Possible AI-generated voice detected" : "Monitoring — no high-risk signal right now"}
           </p>
           <p className="text-[13px] text-text-secondary">
-            Speaker profile mismatch at {session.speakerSimilarity}% · synthetic signal
-            rising — model score, not a probability verdict
+            Live risk {risk}/100 ({severity}) — model score, not a probability verdict
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -143,10 +191,15 @@ export default function LiveMonitoring({
         {/* Risk meter hero */}
         <Card className="flex flex-col items-center justify-center gap-2 p-6 xl:col-span-1">
           <p className="self-start text-[15px] font-semibold">Live Risk Assessment</p>
-          <RiskMeter value={session.risk} />
+          <RiskMeter value={risk} />
           <p className="text-center text-[12px] text-text-secondary">
-            {bandTag(session.riskLevel)} risk · composite of 4 detection signals
+            {bandTag(riskBand(risk))} risk · composite of 4 detection signals
           </p>
+          {isLive && (
+            <p className="font-mono text-[11px] text-text-secondary">
+              {live.chunks.length} live chunks · avg {live.avgRisk}
+            </p>
+          )}
         </Card>
 
         {/* Waveform + metrics */}
@@ -155,10 +208,10 @@ export default function LiveMonitoring({
             <div className="mb-3 flex items-center justify-between">
               <p className="text-[15px] font-semibold">Live Waveform</p>
               <span className="flex items-center gap-1.5 font-mono text-[12px] text-teal">
-                <CircleDot className="size-3.5" /> streaming · {session.source} · 16kHz
+                <CircleDot className="size-3.5" /> {isLive ? "streaming live mic" : "streaming"} · {session.source} · 16kHz
               </span>
             </div>
-            <Waveform />
+            <Waveform live={isLive ? live.chunks.map((c) => c.risk / 100) : undefined} />
           </Card>
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -167,12 +220,12 @@ export default function LiveMonitoring({
               hint="Anti-spoofing model score for this voice"
             >
               <div className="mb-2 font-mono text-[32px] font-bold text-critical">
-                {session.syntheticProbability}%
+                {isLive ? live.latest!.risk : session.syntheticProbability}%
               </div>
               <div className="h-2.5 w-full overflow-hidden rounded-full bg-elev/60">
                 <div
                   className="h-full rounded-full bg-critical"
-                  style={{ width: `${session.syntheticProbability}%` }}
+                  style={{ width: `${isLive ? live.latest!.risk : session.syntheticProbability}%` }}
                 />
               </div>
               <p className="mt-2 text-[11px] text-text-disabled">
@@ -191,13 +244,14 @@ export default function LiveMonitoring({
 
             <MetricCard title="Acoustic Anomaly" hint="Abnormal acoustic patterns detected">
               <div className="flex h-24 items-end gap-2">
-                {acoustic.map((h, i) => (
+                {(isLive ? live.chunks.slice(-8).map((c) => c.risk / 100) : acoustic).map((h, i) => (
                   <div
                     key={i}
                     className="flex-1 rounded-t"
                     style={{
-                      height: `${h * 100}%`,
+                      height: `${Math.max(8, h * 100)}%`,
                       background: h > 0.8 ? "#ff3b3b" : "#00d97e",
+                      transition: "height 300ms ease",
                     }}
                   />
                 ))}
@@ -226,10 +280,10 @@ export default function LiveMonitoring({
       {/* Session health footer */}
       <Card className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
         {[
-          { label: "Session", value: session.sessionState },
-          { label: "Chunk Latency", value: `${session.chunkLatencyMs}ms` },
+          { label: "Session", value: isLive ? "ACTIVE" : session.sessionState },
+          { label: "Chunk Latency", value: live.latencyMs != null ? `${live.latencyMs}ms` : `${session.chunkLatencyMs}ms` },
           { label: "Queue Depth", value: String(session.queueDepth) },
-          { label: "Chunk Sequence", value: String(session.chunkSequence) },
+          { label: "Chunk Sequence", value: isLive ? String(live.latest?.sequence ?? 0) : String(session.chunkSequence) },
         ].map((m) => (
           <div key={m.label}>
             <p className="text-[11px] uppercase tracking-wide text-text-disabled">{m.label}</p>

@@ -1,15 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const COUNT = 64;
 
-export default function Waveform() {
+export default function Waveform({ live }: { live?: number[] }) {
   const [bars, setBars] = useState<number[]>(() =>
     Array.from({ length: COUNT }, () => 0.3),
   );
 
+  // Real risk levels drive the bars directly (no extra render cycle).
+  const rendered = useMemo(() => {
+    if (live && live.length) {
+      return Array.from({ length: COUNT }, (_, i) => {
+        const v = live[i % live.length] ?? 0.3;
+        return 0.12 + Math.min(1, v) * 0.88;
+      });
+    }
+    return bars;
+  }, [live, bars]);
+
   useEffect(() => {
+    if (live && live.length) return; // live mode: no animation timer
     const id = setInterval(() => {
       setBars((prev) =>
         prev.map((_, i) => {
@@ -19,11 +31,11 @@ export default function Waveform() {
       );
     }, 90);
     return () => clearInterval(id);
-  }, []);
+  }, [live]);
 
   return (
     <div className="relative flex h-[120px] items-center gap-[3px] overflow-hidden rounded-lg bg-[repeating-linear-gradient(90deg,transparent,transparent_23px,rgba(255,255,255,0.03)_24px)] px-4">
-      {bars.map((h, i) => (
+      {rendered.map((h, i) => (
         <div
           key={i}
           className="flex-1 rounded-full"

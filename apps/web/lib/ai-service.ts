@@ -1,5 +1,41 @@
+/* VoxVerity AI-service client (server + browser safe).
+ * Server uses AI_SERVICE_URL; browser uses NEXT_PUBLIC_AI_SERVICE_URL.
+ * All calls include AI_SERVICE_API_KEY as Bearer when set (server only).
+ */
+
+function baseUrlServer() {
+  return (
+    process.env.AI_SERVICE_URL ?? process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? ""
+  ).replace(/\/$/, "");
+}
+
+export function aiServiceBrowserUrl() {
+  return (process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? "http://localhost:8000").replace(/\/$/, "");
+}
+
+function authHeaders(): Record<string, string> {
+  const key = process.env.AI_SERVICE_API_KEY;
+  return key ? { Authorization: `Bearer ${key}` } : {};
+}
+
+async function getJson(path: string) {
+  const base = baseUrlServer();
+  if (!base) return null;
+  try {
+    const res = await fetch(`${base}${path}`, {
+      headers: { ...authHeaders() },
+      signal: AbortSignal.timeout(8000),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function checkAIServiceHealth() {
-  const url = process.env.AI_SERVICE_URL;
+  const url = process.env.AI_SERVICE_URL ?? process.env.NEXT_PUBLIC_AI_SERVICE_URL;
   if (!url) return { status: "not_configured" as const, message: "AI_SERVICE_URL not set" };
 
   try {
@@ -13,7 +49,7 @@ export async function checkAIServiceHealth() {
 }
 
 export async function checkAIServiceVersion() {
-  const url = process.env.AI_SERVICE_URL;
+  const url = process.env.AI_SERVICE_URL ?? process.env.NEXT_PUBLIC_AI_SERVICE_URL;
   if (!url) return null;
 
   try {
@@ -23,4 +59,105 @@ export async function checkAIServiceVersion() {
   } catch {
     return null;
   }
+}
+
+export async function getAiModels() {
+  return getJson("/v1/models");
+}
+
+export async function getAiAnalyticsDashboard() {
+  return getJson("/v1/analytics/dashboard");
+}
+
+export async function getAiAnalyticsTrends(hours = 24) {
+  return getJson(`/v1/analytics/trends?hours=${hours}`);
+}
+
+export async function getAiAnalyticsSources() {
+  return getJson("/v1/analytics/sources");
+}
+
+export async function getAiPerformance() {
+  return getJson("/v1/performance");
+}
+
+export async function getAiLanguages() {
+  return getJson("/v1/languages");
+}
+
+export async function getAiConfig() {
+  return getJson("/v1/config");
+}
+
+/** Server-side file analysis (multipart). Used by /api/lab/analyze route. */
+export async function analyzeAudioFileServer(
+  bytes: Uint8Array,
+  filename: string,
+  contentType = "audio/wav"
+) {
+  const base = baseUrlServer();
+  if (!base) throw new Error("AI service not configured");
+  const form = new FormData();
+  form.append("file", new Blob([bytes as unknown as ArrayBuffer], { type: contentType }), filename);
+  const res = await fetch(`${base}/v1/analyze/file`, {
+    method: "POST",
+    headers: { ...authHeaders() },
+    body: form,
+    signal: AbortSignal.timeout(120000),
+  });
+  if (!res.ok) throw new Error(`AI service HTTP ${res.status}`);
+  return res.json();
+}
+
+/** Browser-side file analysis via our Next.js proxy (keeps API key server-side). */
+export async function analyzeAudioFileViaProxy(file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch("/api/lab/analyze", { method: "POST", body: form });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? `Analysis failed (HTTP ${res.status})`);
+  }
+  return res.json();
+}
+
+// ── Realtime WebSocket protocol (browser) ─────────────────────────────
+// Server: services/ai-service/app/realtime/routes.py + manager.py
+// Messages out: {type:'hello'} {type:'start_session',source} {type:'audio_chunk',sequence,audio_b64,encoding}
+// Messages in: hello ack, session_started, ack, analysis_complete (+risk), risk_update, alert_created, session_stopped
+
+export interface RealtimeRisk {
+  score: number;
+  severity: string;
+  factors?: unknown;
+}
+
+export interface RealtimeAnalysis {
+  sequence: number;
+  risk?: RealtimeRisk;
+  dsp_metrics?: Record<string, number>;
+  spoof_detection?: Record<string, unknown>;
+  human_pattern?: Record<string, unknown>;
+  source?: string;
+}
+
+export function aiRealtimeWsUrl(sessionId: string): string {
+  const http = aiServiceBrowserUrl();
+  const ws = http.replace(/^http/, "ws");
+  return `${ws}/v1/realtime/${sessionId}`;
+}
+
+export function floatToPcm16Base64(float32: Float32Array): string {
+  const pcm = new Int16Array(float32.length);
+  for (let i = 0; i < float32.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32[i]));
+    pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  const bytes = new Uint8Array(pcm.buffer);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 }
