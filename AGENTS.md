@@ -9,14 +9,34 @@ VoxVerity is an AI-powered real-time voice integrity verification platform. It d
 
 ## Source of Truth
 
-- **Full specification and engineering plan:** `project_info.md` at the project root.
+- **Full specification and engineering plan:** `docs/spec/project_info.md`.
 - This `AGENTS.md` file defines agent behavior rules.
-- `plan.md` defines the master phase map.
+- `docs/planning/plan.md` defines the master phase map.
 - `design.md` defines UX and product behavior.
 - `docs/build-status.md` tracks phase progress.
 - `docs/phases/` contains individual phase implementation files.
 
-**Always refer to `project_info.md` for detailed requirements, architecture, technology choices, API inventory, database model, and phase execution details.** When in doubt, the specification in `project_info.md` overrides any summary in these agent files.
+**Always refer to `docs/spec/project_info.md` for detailed requirements, architecture, technology choices, API inventory, database model, and phase execution details.** When in doubt, the specification in `docs/spec/project_info.md` overrides any summary in these agent files.
+
+## Docs Map
+
+Only `AGENTS.md`, `design.md`, and `run.md` live at the project root. Everything else lives under `docs/`:
+
+| Path | What it is |
+|---|---|
+| `docs/spec/project_info.md` | Full specification: requirements, architecture, API inventory, database model, phase execution details |
+| `docs/planning/plan.md` | Master phase map: all phases, dependencies, status, acceptance criteria |
+| `docs/planning/phases.md` | Phase checklist (all 40 phases, completion state) |
+| `docs/phases/` | One implementation file per phase — read the current one before coding |
+| `docs/build-status.md` | Phase progress log: status, commit hash, verification date, test results |
+| `docs/reports/` | Engineering reports: `REPORT.md` (gap report), `TRACK.md` (production-readiness), `FRONTEND_BACKEND_GAP_REPORT.md` |
+| `docs/releases/` | `RELEASE_NOTES.md` — release notes |
+| `docs/guides/` | `tutorial.md` — end-to-end walkthrough |
+| `docs/runbooks/` | Operational runbooks (e.g. demo runbook) |
+| `docs/decisions/` | Architecture Decision Records (ADRs) |
+| `docs/api/` | API documentation |
+| `run.md` (root) | How to run the project |
+| `design.md` (root) | UX and product behavior |
 
 ## Technology Stack (Do Not Substitute)
 
@@ -46,7 +66,7 @@ Any deliberate substitution requires a recorded Architecture Decision Record (AD
 ## Phase Discipline
 
 1. **One phase at a time.** Do not start a later phase because its code is easy.
-2. **Read before writing.** Read `AGENTS.md`, `plan.md`, `design.md`, `docs/build-status.md`, and the current phase file before any implementation.
+2. **Read before writing.** Read `AGENTS.md`, `docs/planning/plan.md`, `design.md`, `docs/build-status.md`, and the current phase file before any implementation.
 3. **Inspect before changing.** Read existing code before modifying it.
 4. **Smallest viable implementation.** Build the minimum that satisfies the phase objective and acceptance criteria.
 5. **Verify.** Run the required checks (build, tests, manual verification) for the phase.
@@ -132,8 +152,8 @@ The phase order is mandatory and exists to control risk:
 
 ## References
 
-- Full specification: `project_info.md`
-- Phase map: `plan.md`
+- Full specification: `docs/spec/project_info.md`
+- Phase map: `docs/planning/plan.md`
 - Design/UX: `design.md`
 - Build status: `docs/build-status.md`
 - Phase files: `docs/phases/`

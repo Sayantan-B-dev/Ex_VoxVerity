@@ -41,7 +41,7 @@ __pycache__/
 services/ai-service/.env
 
 
-# out-of-scope scaffolding (see TRACK.md) — never worked on, never committed
+# out-of-scope scaffolding (see docs/reports/TRACK.md) — never worked on, never committed
 soumya/
 subhankar/
 temp_proj/

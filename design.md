@@ -1,7 +1,7 @@
 # VoxVerity — Design and UX Specification
 
 > This document records product behavior, visual language, risk semantics, privacy UX, component interaction rules, and user roles.
-> For full technical details, see `project_info.md`.
+> For full technical details, see `docs/spec/project_info.md`.
 
 ## Product Definition
 

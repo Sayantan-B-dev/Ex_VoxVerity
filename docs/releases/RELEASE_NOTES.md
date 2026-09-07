@@ -83,7 +83,7 @@ architecture and controlled demo capabilities.
 
 ## Known Limitations
 
-See `docs/KNOWN_LIMITATIONS.md` for complete list.
+See `../KNOWN_LIMITATIONS.md` for complete list.
 
 ### Critical
 - Single-instance deployment only
@@ -99,7 +99,7 @@ See `docs/KNOWN_LIMITATIONS.md` for complete list.
 
 ## Getting Started
 
-See `docs/runbooks/demo_runbook.md` for complete setup instructions.
+See `../runbooks/demo_runbook.md` for complete setup instructions.
 
 ### Quick Start
 ```bash
@@ -120,12 +120,12 @@ npm run dev
 
 ## Documentation
 
-- `docs/DEPLOYMENT.md` - Deployment guide
-- `docs/RELEASE_CHECKLIST.md` - Release verification
-- `docs/KNOWN_LIMITATIONS.md` - Known limitations
-- `docs/runbooks/demo_runbook.md` - Demo runbook
-- `AGENTS.md` - Development constitution
-- `project_info.md` - Full specification
+- `../DEPLOYMENT.md` - Deployment guide
+- `../RELEASE_CHECKLIST.md` - Release verification
+- `../KNOWN_LIMITATIONS.md` - Known limitations
+- `../runbooks/demo_runbook.md` - Demo runbook
+- `../../AGENTS.md` - Development constitution
+- `../spec/project_info.md` - Full specification
 
 ---
 

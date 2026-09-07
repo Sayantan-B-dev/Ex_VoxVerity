@@ -446,16 +446,17 @@ voxverity/
 ├── packages/
 │   └── shared-types/
 ├── docs/
+│   ├── spec/project_info.md
+│   ├── planning/plan.md
+│   ├── planning/phases.md
 │   ├── phases/
 │   ├── decisions/
 │   ├── api/
 │   ├── build-status.md
 │   └── runbooks/
 ├── AGENTS.md
-├── ONE_SHOT_BUILD.md
-├── README.md
-├── plan.md
 ├── design.md
+├── run.md
 ├── .env.example
 ├── .gitignore
 ├── package.json
@@ -664,8 +665,8 @@ Every phase must end with a clean working tree and a commit hash recorded in doc
 41. Engineering Agent Files
 41.1 AGENTS.md
 AGENTS.md is the constitution for coding agents. It must state: mission, architecture, source-of-truth rules, no-go technologies, security constraints, privacy requirements, model limitations, phase discipline, testing discipline, dependency discipline, git requirements, and stop conditions.
-41.2 plan.md
-plan.md is the human-readable master phase map. It must list all phases, dependencies, current state and acceptance criteria at a high level.
+41.2 docs/planning/plan.md
+plan.md (at docs/planning/plan.md) is the human-readable master phase map. It must list all phases, dependencies, current state and acceptance criteria at a high level.
 41.3 design.md
 design.md records UX/product behavior, visual language, risk semantics, privacy UX, component interaction rules, and user roles.
 41.4 docs/build-status.md
@@ -677,7 +678,7 @@ ONE_SHOT_BUILD.md is an optional bootstrap/orchestration prompt. It must not bec
 42. Phase Execution Protocol
 1. Open repository and confirm clean working tree.
 2. Read AGENTS.md.
-3. Read plan.md and design.md.
+3. Read docs/planning/plan.md and design.md.
 4. Read docs/build-status.md.
 5. Read exactly the current phase file.
 6. Inspect existing code before changing anything.
@@ -698,7 +699,7 @@ Outputs:
 - Git repository
 - Next.js web app scaffold
 - AGENTS.md
-- plan.md
+- docs/planning/plan.md
 - design.md
 - docs/build-status.md
 - phase documents

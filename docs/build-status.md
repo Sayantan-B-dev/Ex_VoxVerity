@@ -24,7 +24,7 @@
 | 22–26 — AASIST-L, ECAPA-TDNN, Risk Engine | Complete | ea38887 | 2026-09-07 | Build passes | Out-of-domain performance weaker than benchmark |
 | 27–30 — Realtime WS, WebRTC, Alerts, Verification | Complete | ea38887 | 2026-09-07 | Build passes | Signaling in-memory only |
 | 31–32 — Evidence Packaging, Blockchain Registry | Complete | 63e880a | 2026-09-07 | Build passes | Chain env optional; fail-soft without it |
-| 33–36 — Audit, Integrations, Multilingual, Analytics | Complete | 366b686 | 2026-09-07 | Build passes | Non-core pages cut per REPORT.md |
+| 33–36 — Audit, Integrations, Multilingual, Analytics | Complete | 366b686 | 2026-09-07 | Build passes | Non-core pages cut per reports/REPORT.md |
 | 37–40 — Security, Performance, Demo, Release | Complete | 63e880a | 2026-09-07 | Build passes | — |
 | Production-readiness (auth, schema, realtime, CRUD) | Complete | 0c0bc3d | 2026-09-07 | `npm run build` passes (41 routes), `npm run lint` 0 errors | — |
 | Session 2 (presence, calls, risk write-back, fingerprints) | Complete | 63e880a | 2026-09-07 | Build passes | All demo/hardcoded data removed |

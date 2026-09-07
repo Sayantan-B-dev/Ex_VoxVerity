@@ -19,7 +19,7 @@ Two UI reference projects were added alongside it:
 
 This plan creates **`temp_proj/`**: a new, **standalone Next.js 16 frontend-only project** that takes
 **all components from `soumya/`** and arranges them in **the layout structure of `subhankar/`**,
-rebranded to the VoxVerity voice-integrity product idea described in `project_info.md`.
+rebranded to the VoxVerity voice-integrity product idea described in `spec/project_info.md`.
 
 `temp_proj/` is a style-verification harness. The merged style was confirmed, and the result was
 migrated into `apps/web/` and wired to the existing backend (Supabase + AI service) — see Phase 10.
@@ -67,9 +67,9 @@ migrated into `apps/web/` and wired to the existing backend (Supabase + AI servi
 | `components/Navbar.jsx` | `components/Navbar.tsx` — top bar: menu toggle, search, date, bell, avatar (soumya tokens) |
 | Pages (Dashboard, Live Analysis, Reports, Alerts, Profile, Settings) | Mapped to VoxVerity routes — see §4 |
 
-### 2.3 Product context taken from `project_info.md` + `apps/web/`
+### 2.3 Product context taken from `spec/project_info.md` + `apps/web/`
 
-- Route inventory (section 16 of `project_info.md`) — the exact route list `apps/web` already ships.
+- Route inventory (section 16 of `spec/project_info.md`) — the exact route list `apps/web` already ships.
 - Domain types (section 19): `RiskLevel`, `SessionState`, `CaptureState`, `SourceType`,
   `SyntheticLabel`, `VerificationDecision`, `IncidentStatus`.
 - `apps/web/app/(protected)/layout.tsx` — the nav grouping (Main / Security Operations /
@@ -83,10 +83,10 @@ migrated into `apps/web/` and wired to the existing backend (Supabase + AI servi
 
 | # | Decision | Rationale |
 |---|---|---|
-| D1 | `temp_proj` uses **Next.js 16.3.4 + React 19 + TypeScript + npm** | Matches `apps/web` and the project baseline (`project_info.md` §5.1). |
-| D2 | **Tailwind CSS v4** is adopted for the merged frontend | Both reference projects (`soumya`, `subhankar`) are Tailwind v4. The project's "no Tailwind" default (AGENTS.md) is superseded by this explicit user decision. When merged, `apps/web` will add Tailwind v4 alongside/over its current CSS-variable system. |
+| D1 | `temp_proj` uses **Next.js 16.3.4 + React 19 + TypeScript + npm** | Matches `apps/web` and the project baseline (`spec/project_info.md` §5.1). |
+| D2 | **Tailwind CSS v4** is adopted for the merged frontend | Both reference projects (`soumya`, `subhankar`) are Tailwind v4. The project's "no Tailwind" default (../AGENTS.md) is superseded by this explicit user decision. When merged, `apps/web` will add Tailwind v4 alongside/over its current CSS-variable system. |
 | D3 | Design tokens come from `soumya/src/index.css` (`@theme` colors, Inter / Micro 5 / Fira Code fonts, keyframes) | This is the confirmed visual language the user wants. |
-| D4 | Branding = **VoxVerity** (voice integrity). soumya's AEGISAI/banking-security copy is rewritten to voice-integrity content; component *structure and styles* stay identical. | The product idea is VoxVerity (`project_info.md`). |
+| D4 | Branding = **VoxVerity** (voice integrity). soumya's AEGISAI/banking-security copy is rewritten to voice-integrity content; component *structure and styles* stay identical. | The product idea is VoxVerity (`spec/project_info.md`). |
 | D5 | **Central demo-data layer** `lib/demo-data.ts` — all seed data lives here, typed, clearly marked as placeholder, consumed by pages via props. No fake data hard-coded inside components. | Satisfies "no hard-coded fake data"; the module is replaced by Supabase/AI-service queries at migration (Phase 10). |
 | D6 | No auth gating in temp_proj (routes render the styled shell); "Sign in"/"Launch" flows navigate client-side. | `temp_proj` verifies style. Real auth/middleware is already implemented in `apps/web` and stays there. |
 | D7 | No ESLint config in temp_proj (lean scaffold). Type check via `tsc --noEmit`, build via `next build`. | ESLint config is inherited from `apps/web` at migration. |
@@ -140,7 +140,7 @@ Protected (subhankar shell: Sidebar + Navbar):
 | `/admin` · `/admin/users` · `/admin/organizations` · `/admin/roles` · `/admin/models` · `/admin/system` | Admin pages |
 | `(protected)/loading.tsx` | `soumya Loading` |
 
-This covers the full `project_info.md` §16 inventory so the sidebar has no dead links and direct
+This covers the full `spec/project_info.md` §16 inventory so the sidebar has no dead links and direct
 URL entry never 404s.
 
 ---
@@ -257,8 +257,8 @@ call in `apps/web/lib/*`, with **zero component changes**.
 
 ## 8. References
 
-- `project_info.md` — SRS, route inventory (§16), domain types (§19), tech baseline (§5)
+- `spec/project_info.md` — SRS, route inventory (§16), domain types (§19), tech baseline (§5)
 - `soumya/src/components/*` + `soumya/src/index.css` — component & token source
 - `subhankar/src/App.jsx` + `subhankar/src/components/*` — layout shell source
 - `apps/web/app/(protected)/layout.tsx` — nav grouping target for migration
-- `AGENTS.md` — constitution (phase discipline, no-go tech, privacy/security rules)
+- `../AGENTS.md` — constitution (phase discipline, no-go tech, privacy/security rules)

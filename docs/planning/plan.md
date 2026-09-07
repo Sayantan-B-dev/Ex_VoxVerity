@@ -1,8 +1,8 @@
 # VoxVerity — Master Phase Map
 
 > This is the human-readable overview of all implementation phases.
-> For full details, refer to `project_info.md` (Sections 43–44).
-> For agent rules, see `AGENTS.md`.
+> For full details, refer to `docs/spec/project_info.md` (Sections 43–44).
+> For agent rules, see `AGENTS.md` at the project root.
 
 **Current phase:** Phase 01 — Repository Bootstrap and Constitution
 **Status:** In Progress
@@ -31,7 +31,7 @@
 ### Phase 01: Repository Bootstrap and Constitution
 - **Depends on:** None
 - **Status:** In Progress
-- **Acceptance criteria:** Git repo exists, `npm run dev` works, `npm run build` succeeds, AGENTS.md/plan.md/design.md exist, no Vite project, clean working tree after commit.
+- **Acceptance criteria:** Git repo exists, `npm run dev` works, `npm run build` succeeds, AGENTS.md, docs/planning/plan.md and design.md exist, no Vite project, clean working tree after commit.
 - **Commit message:** `chore: bootstrap voxverity project`
 
 ### Phase 02: Route Skeleton
