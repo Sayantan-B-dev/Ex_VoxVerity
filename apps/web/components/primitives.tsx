@@ -7,7 +7,7 @@ import { HelpCircle } from "lucide-react";
 
 const cx = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(" ");
 
-// A small "?" with a plain-language explanation on hover/focus/click — helps newcomers.
+// A small "?" with a plain-language explanation on hover/focus/click - helps newcomers.
 // Rendered via portal so it escapes `overflow-hidden` ancestors (e.g. Card)
 // and always floats above surrounding content.
 export function InfoHint({ text }: { text: string }) {

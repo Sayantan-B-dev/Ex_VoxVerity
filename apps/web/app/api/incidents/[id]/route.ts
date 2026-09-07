@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireOrg, audit } from "@/lib/api-auth";
 
-/** PATCH /api/incidents/:id — status/owner/summary. POST note via {note}. */
+/** PATCH /api/incidents/:id - status/owner/summary. POST note via {note}. */
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await requireOrg();
   if ("error" in ctx) return ctx.error;

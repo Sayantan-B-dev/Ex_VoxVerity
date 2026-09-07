@@ -74,7 +74,7 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-line bg-elev px-4 py-3">
       <p className="text-[11px] uppercase tracking-wide text-text-disabled">{label}</p>
-      <p className="mt-0.5 text-[14px] font-medium text-text-primary">{value || "—"}</p>
+      <p className="mt-0.5 text-[14px] font-medium text-text-primary">{value || "-"}</p>
     </div>
   );
 }
@@ -91,8 +91,8 @@ export default function ProfileView({ profile }: { profile: ProfileProps | null 
   const [jobTitle, setJobTitle] = useState(profile?.job_title ?? "");
   const [location, setLocation] = useState(profile?.location ?? "");
 
-  const name = profile?.name ?? "—";
-  const email = profile?.email ?? "—";
+  const name = profile?.name ?? "-";
+  const email = profile?.email ?? "-";
   const role = profile?.role ?? "operator";
   const initial = (firstName?.[0] ?? name[0] ?? "U").toUpperCase();
   const displayName = firstName ? `${firstName} ${lastName}`.trim() : name;

@@ -1,4 +1,4 @@
-// Isometric wireframe surface — evokes a live risk terrain.
+// Isometric wireframe surface - evokes a live risk terrain.
 export default function MeshSurface() {
   const cols = 22;
   const rows = 14;

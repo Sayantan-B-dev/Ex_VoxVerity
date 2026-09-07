@@ -41,7 +41,7 @@ export function usePresence(selfUserId?: string) {
           body: JSON.stringify({}),
         });
       } catch {
-        /* server offline — presence list stays as-is */
+        /* server offline - presence list stays as-is */
       }
     };
     beat();

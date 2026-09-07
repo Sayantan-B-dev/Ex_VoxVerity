@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { SignJWT } from "jose";
 
-// The AI service verifies with the SAME WS_TOKEN_SECRET — it must be set in
+// The AI service verifies with the SAME WS_TOKEN_SECRET - it must be set in
 // both apps/web/.env.local and services/ai-service/.env. No fallback to
 // AUTH_SECRET here: signing with a different key makes the AI service reject
 // every token as "Invalid or expired". If it's unset, we return 503 and the

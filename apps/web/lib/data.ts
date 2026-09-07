@@ -179,7 +179,7 @@ function mapCall(row: DbCall): Call {
   return {
     id: row.id,
     caller: row.caller_display ?? row.user_email ?? "Unknown caller",
-    number: row.phone_number ?? "—",
+    number: row.phone_number ?? "-",
     source: (row.source ?? "WEBRTC").toUpperCase() as Call["source"],
     startedAt: row.started_at ?? new Date().toISOString(),
     durationSec: Math.floor((row.duration_ms ?? 0) / 1000),
@@ -197,8 +197,8 @@ function mapAlert(row: DbAlert): SecurityAlert {
     id: row.id,
     severity: level,
     threat: row.threat_title ?? row.message ?? "Alert",
-    caller: row.caller_display ?? "—",
-    phone: row.phone ?? "—",
+    caller: row.caller_display ?? "-",
+    phone: row.phone ?? "-",
     time: row.created_at ?? new Date().toISOString(),
     risk: row.risk_score ?? (level === "CRITICAL" ? 82 : level === "HIGH" ? 64 : level === "MEDIUM" ? 42 : 18),
     status: (row.status as SecurityAlert["status"]) ?? (row.acknowledged ? "Acknowledged" : "Investigating"),
@@ -225,10 +225,10 @@ function mapIncident(row: DbIncident): Incident {
 function mapEvidence(row: DbEvidence): EvidenceRecord {
   return {
     id: row.id,
-    callId: row.call_id ?? "—",
+    callId: row.call_id ?? "-",
     caller: row.caller_display ?? "Linked call",
     createdAt: row.created_at ?? new Date().toISOString(),
-    hash: row.evidence_hash ?? "—",
+    hash: row.evidence_hash ?? "-",
     algorithm: (row.hash_algorithm ?? "SHA-256") as EvidenceRecord["algorithm"],
     chainStatus: (row.blockchain_tx || row.verified ? "REGISTERED" : "PENDING") as EvidenceRecord["chainStatus"],
     txHash: row.blockchain_tx ?? undefined,

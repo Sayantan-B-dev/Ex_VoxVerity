@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireOrg, audit } from "@/lib/api-auth";
 
-/** PATCH /api/alerts/:id — acknowledge / escalate. */
+/** PATCH /api/alerts/:id - acknowledge / escalate. */
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await requireOrg();
   if ("error" in ctx) return ctx.error;

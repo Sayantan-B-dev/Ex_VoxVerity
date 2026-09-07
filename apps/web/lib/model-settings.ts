@@ -20,7 +20,7 @@ export const MODEL_OPTIONS: Array<{ id: ModelId; label: string; hint: string }> 
   {
     id: "aasist",
     label: "AASIST-L only",
-    hint: "Anti-spoof model only — no speaker similarity scoring.",
+    hint: "Anti-spoof model only - no speaker similarity scoring.",
   },
   {
     id: "heuristic",
@@ -51,7 +51,7 @@ export function setModelPreference(model: ModelId): void {
   try {
     window.localStorage.setItem(STORAGE_KEY, model);
   } catch {
-    /* storage unavailable — in-memory only */
+    /* storage unavailable - in-memory only */
   }
 }
 

@@ -1,4 +1,4 @@
-// Flowing streamgraph — many thin threads converging into a node then fanning to a bar rail.
+// Flowing streamgraph - many thin threads converging into a node then fanning to a bar rail.
 export default function StreamFeed() {
   const w = 560;
   const h = 300;

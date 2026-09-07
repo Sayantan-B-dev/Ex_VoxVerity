@@ -60,7 +60,7 @@ export default function LivePage() {
   const [peerLevel, setPeerLevel] = useState(0);
   const [selfLevel, setSelfLevel] = useState(0);
 
-  // Keep the hidden audio element bound to the remote stream — the host hears
+  // Keep the hidden audio element bound to the remote stream - the host hears
   // the caller. That same remote stream is what the host's dashboard analyzes
   // (the caller's voice, never the host's own mic).
   useEffect(() => {
@@ -131,7 +131,7 @@ export default function LivePage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      /* clipboard unavailable — user can copy manually */
+      /* clipboard unavailable - user can copy manually */
     }
   }
 
@@ -167,7 +167,7 @@ export default function LivePage() {
           <h2 className="text-[17px] font-semibold">Protected call rooms</h2>
         </div>
 
-        {/* Mic selection — each browser picks its own input device */}
+        {/* Mic selection - each browser picks its own input device */}
         <div className="mb-4 flex flex-col gap-1.5 rounded-xl border border-line bg-elev px-4 py-3">
           <p className="text-[12px] font-semibold">Your microphone</p>
           <MicPicker value={micDeviceId} onChange={setMicDeviceId} />
@@ -218,7 +218,7 @@ export default function LivePage() {
           </div>
         )}
 
-        {/* Waiting for a peer — show the code (creator) or joining state (joiner) */}
+        {/* Waiting for a peer - show the code (creator) or joining state (joiner) */}
         {call.status === "calling" && (
           <div className="flex flex-col items-center rounded-xl border border-teal/30 bg-teal/5 p-6 text-center">
             {call.isHost ? (
@@ -228,7 +228,7 @@ export default function LivePage() {
                   {call.roomCode}
                 </p>
                 <p className="mt-3 text-[12px] text-text-secondary">
-                  Share this code — the caller joins from Live Monitor → “Join with code”, and their
+                  Share this code - the caller joins from Live Monitor → “Join with code”, and their
                   voice is integrity-checked on your dashboard.
                 </p>
                 <div className="mt-4 flex items-center gap-2">
@@ -272,7 +272,7 @@ export default function LivePage() {
         )}
       </Card>
 
-      {/* Active call — hang up + analysis panel */}
+      {/* Active call - hang up + analysis panel */}
       {call.status === "active" && (
         <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
           <div className="flex min-w-0 items-center gap-3">
@@ -284,7 +284,7 @@ export default function LivePage() {
                 {call.isHost
                   ? call.peer
                     ? `Monitoring ${call.peer.name}'s call`
-                    : "On call — caller connected"
+                    : "On call - caller connected"
                   : `On call with ${call.peer?.name ?? "room host"}`}
                 <span
                   className={`ml-2 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold ${
@@ -305,8 +305,8 @@ export default function LivePage() {
               </p>
               <p className="font-mono text-[12px] text-text-secondary">
                 {call.isHost
-                  ? `Analyzing the caller's voice in 3s chunks — your own mic only feeds the call, never analyzed.`
-                  : "Your voice is being analyzed by the room host in 3s chunks — your mic also feeds the call audio."}
+                  ? `Analyzing the caller's voice in 3s chunks - your own mic only feeds the call, never analyzed.`
+                  : "Your voice is being analyzed by the room host in 3s chunks - your mic also feeds the call audio."}
               </p>
             </div>
           </div>
@@ -332,7 +332,7 @@ export default function LivePage() {
         </Card>
       )}
 
-      {/* Host-side analysis — analyzes the CALLER's voice (their remote WebRTC
+      {/* Host-side analysis - analyzes the CALLER's voice (their remote WebRTC
           stream), never the host's own microphone. */}
       {call.isHost && call.status === "active" && (
         <LiveMonitoring
@@ -345,7 +345,7 @@ export default function LivePage() {
         />
       )}
 
-      {/* Caller self-monitor (limited) — their own mic level only, nothing analyzed here. */}
+      {/* Caller self-monitor (limited) - their own mic level only, nothing analyzed here. */}
       {!call.isHost && call.status === "active" && (
         <SelfMonitor stream={call.localStream} onLevel={setSelfLevel} />
       )}
@@ -389,7 +389,7 @@ export default function LivePage() {
               },
               {
                 label: "Avg spoof (bona fide)",
-                value: summary.avgSpoof != null ? `${summary.avgSpoof}%` : "—",
+                value: summary.avgSpoof != null ? `${summary.avgSpoof}%` : "-",
               },
             ].map((m) => (
               <div key={m.label}>
@@ -400,9 +400,9 @@ export default function LivePage() {
           </div>
           <p className="mt-4 text-[12px] text-text-secondary">
             {summary.avgSim != null && summary.avgSim < 0.7
-              ? "The joined person's voice did not match the enrolled voiceprint — flag for review."
+              ? "The joined person's voice did not match the enrolled voiceprint - flag for review."
               : summary.avgRisk >= 51
-                ? "High-risk call — review the alerts and create an incident if needed."
+                ? "High-risk call - review the alerts and create an incident if needed."
                 : "No high-risk signal during this call."}
           </p>
         </Card>

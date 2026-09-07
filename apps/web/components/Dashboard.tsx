@@ -99,7 +99,7 @@ export default function Dashboard({ calls, alerts, incidents }: DashboardData) {
         </span>
       </div>
 
-      {/* KPI row — all computed from SQL */}
+      {/* KPI row - all computed from SQL */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiTile
           icon={Phone}
@@ -149,7 +149,7 @@ export default function Dashboard({ calls, alerts, incidents }: DashboardData) {
                 <div className="rounded-xl border border-line bg-elev p-4">
                   <div className="flex items-center justify-between">
                     <p className="font-mono text-[12px] text-text-disabled">
-                      chunk #{liveChunk.chunk_sequence ?? "—"}
+                      chunk #{liveChunk.chunk_sequence ?? "-"}
                     </p>
                     <Tag level={bandTag(riskBand(liveChunk.risk_score ?? 0))}>
                       {bandTag(riskBand(liveChunk.risk_score ?? 0))}
@@ -171,7 +171,7 @@ export default function Dashboard({ calls, alerts, incidents }: DashboardData) {
                 </div>
               ) : (
                 <p className="text-[12px] text-text-secondary">
-                  No live chunks yet — start a call from Live Monitor to stream caller audio.
+                  No live chunks yet - start a call from Live Monitor to stream caller audio.
                 </p>
               )}
             </div>

@@ -56,7 +56,7 @@ function CircularProgress({ value, color, empty }: { value: number; color: strin
           style={{ transition: "stroke-dashoffset 800ms ease" }}
         />
       </svg>
-      <span className="absolute font-mono text-[20px] font-bold">{empty ? "—" : `${Math.round(value)}%`}</span>
+      <span className="absolute font-mono text-[20px] font-bold">{empty ? "-" : `${Math.round(value)}%`}</span>
     </div>
   );
 }
@@ -79,7 +79,7 @@ export default function LiveMonitoring({
   autoStart?: boolean;
   /** Fired per analyzed 3s chunk (server write-back in the caller flow). */
   onChunk?: (msg: Record<string, unknown>) => void;
-  /** Peer audio (the person who joined) — analyze their voice, not this browser's mic. */
+  /** Peer audio (the person who joined) - analyze their voice, not this browser's mic. */
   remoteStream?: MediaStream | null;
   /** Display name of the person whose voice is being analyzed. */
   subjectName?: string;
@@ -102,7 +102,7 @@ export default function LiveMonitoring({
 
   // Auto-start ONLY once the peer's audio has actually arrived over WebRTC.
   // The moment this component mounts (call active) the remote stream may still
-  // be null — starting then would silently fall back to THIS browser's mic and
+  // be null - starting then would silently fall back to THIS browser's mic and
   // the dashboard would analyze the host's own voice instead of the caller's.
   useEffect(() => {
     if (!autoStart || live.state !== "idle") return;
@@ -192,7 +192,7 @@ export default function LiveMonitoring({
         </div>
       </Card>
 
-      {/* Live capture controls — analyzed audio (mic or peer stream) → AI-service WebSocket */}
+      {/* Live capture controls - analyzed audio (mic or peer stream) → AI-service WebSocket */}
       <Card className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[14px] font-semibold">{isRemote ? "Realtime voice analysis" : "Realtime capture"}</p>
@@ -249,10 +249,10 @@ export default function LiveMonitoring({
         <TriangleAlert className="size-6 shrink-0 text-critical" />
         <div className="flex-1">
           <p className="text-[15px] font-semibold">
-            {risk >= 51 ? "ALERT: Possible AI-generated voice detected" : "Monitoring — no high-risk signal right now"}
+            {risk >= 51 ? "ALERT: Possible AI-generated voice detected" : "Monitoring - no high-risk signal right now"}
           </p>
           <p className="text-[13px] text-text-secondary">
-            Live risk {risk}/100 ({severity}) — model score, not a probability verdict
+            Live risk {risk}/100 ({severity}) - model score, not a probability verdict
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -328,12 +328,12 @@ export default function LiveMonitoring({
                 />
                 <p className="max-w-[9rem] text-right text-[12px] text-text-secondary">
                   {sim == null
-                    ? "No voiceprint enrolled — run scripts/train_voiceprint.py to train one, then the dashboard scores similarity against YOUR voice."
+                    ? "No voiceprint enrolled - run scripts/train_voiceprint.py to train one, then the dashboard scores similarity against YOUR voice."
                     : sim >= 0.7
                       ? `Matches the enrolled voiceprint${latest?.speakerName ? ` (${latest.speakerName})` : ""}.`
                       : sim >= 0.5
-                        ? "Uncertain — close but below the 70% match threshold."
-                        : "Does not match the enrolled voiceprint — possible different speaker."}
+                        ? "Uncertain - close but below the 70% match threshold."
+                        : "Does not match the enrolled voiceprint - possible different speaker."}
                 </p>
               </div>
               {latest?.speakerMatch != null && (
@@ -394,7 +394,7 @@ export default function LiveMonitoring({
         </div>
         {live.chunks.length === 0 ? (
           <p className="text-[12px] text-text-secondary">
-            No chunks analyzed yet — start live capture to see per-3s analysis.
+            No chunks analyzed yet - start live capture to see per-3s analysis.
           </p>
         ) : (
           <div className="max-h-80 overflow-auto rounded-lg border border-line">
@@ -427,23 +427,23 @@ export default function LiveMonitoring({
                         {c.risk}
                       </span>
                     </td>
-                    <td className="px-3 py-1.5">{c.spoofScore != null ? `${c.spoofScore}%` : "—"}</td>
+                    <td className="px-3 py-1.5">{c.spoofScore != null ? `${c.spoofScore}%` : "-"}</td>
                     <td className="px-3 py-1.5">
                       {c.speakerSimilarity != null ? (
                         <span className={c.speakerMatch ? "text-neon" : "text-warn"}>
                           {(c.speakerSimilarity * 100).toFixed(0)}%{c.noSpeech ? " · silence" : ""}
                         </span>
                       ) : c.noSpeech ? (
-                        "— · silence"
+                        "- · silence"
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </td>
-                    <td className="px-3 py-1.5">{c.acousticAnomaly != null ? `${c.acousticAnomaly}` : "—"}</td>
-                    <td className="px-3 py-1.5">{c.humanScore != null ? `${c.humanScore}%` : "—"}</td>
-                    <td className="px-3 py-1.5">{c.rms != null ? c.rms.toFixed(3) : "—"}</td>
-                    <td className="px-3 py-1.5">{c.spectralCentroid != null ? `${Math.round(c.spectralCentroid)} Hz` : "—"}</td>
-                    <td className="px-3 py-1.5">{c.latencyMs != null ? `${c.latencyMs} ms` : "—"}</td>
+                    <td className="px-3 py-1.5">{c.acousticAnomaly != null ? `${c.acousticAnomaly}` : "-"}</td>
+                    <td className="px-3 py-1.5">{c.humanScore != null ? `${c.humanScore}%` : "-"}</td>
+                    <td className="px-3 py-1.5">{c.rms != null ? c.rms.toFixed(3) : "-"}</td>
+                    <td className="px-3 py-1.5">{c.spectralCentroid != null ? `${Math.round(c.spectralCentroid)} Hz` : "-"}</td>
+                    <td className="px-3 py-1.5">{c.latencyMs != null ? `${c.latencyMs} ms` : "-"}</td>
                   </tr>
                 ))}
               </tbody>

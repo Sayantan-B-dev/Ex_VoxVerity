@@ -10,7 +10,7 @@ interface MicDevice {
 
 /**
  * Microphone selector for THIS browser. Each side of a call picks its own
- * device — essential when testing two browsers on the same machine (both would
+ * device - essential when testing two browsers on the same machine (both would
  * otherwise grab the same default mic). The picked deviceId is used when the
  * call's getUserMedia runs, so it applies to the next call/join.
  */
@@ -28,13 +28,13 @@ export default function MicPicker({
     setScanning(true);
     try {
       // Device labels are only exposed after mic permission. Grab the mic for
-      // a moment and stop it — labels stay unlocked for the session.
+      // a moment and stop it - labels stay unlocked for the session.
       if (unlock || devices.length === 0) {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           stream.getTracks().forEach((t) => t.stop());
         } catch {
-          /* permission denied — show what we can */
+          /* permission denied - show what we can */
         }
       }
       const all = await navigator.mediaDevices.enumerateDevices();

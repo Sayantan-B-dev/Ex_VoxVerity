@@ -24,7 +24,7 @@ export default async function AnalysisPage() {
         const file = r.fileId ? byId.get(r.fileId) : undefined;
         return (
           <div>
-            <p className="font-medium text-text-primary">{file?.name ?? r.sessionId ?? "—"}</p>
+            <p className="font-medium text-text-primary">{file?.name ?? r.sessionId ?? "-"}</p>
             <p className="text-[11px] text-text-disabled">{timeAgo(r.createdAt)}</p>
           </div>
         );

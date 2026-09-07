@@ -75,7 +75,7 @@ export default function EvidenceView({ records }: { records: EvidenceRecord[] })
         e.txHash ? (
           <span className="max-w-[160px] truncate font-mono text-[11px] text-text-secondary">{e.txHash}</span>
         ) : (
-          <span className="text-[11px] text-text-disabled">—</span>
+          <span className="text-[11px] text-text-disabled">-</span>
         ),
     },
     {
@@ -108,7 +108,7 @@ export default function EvidenceView({ records }: { records: EvidenceRecord[] })
           res.ok
             ? data.verified
               ? `✓ Server-verified: manifest re-hashed to ${String(data.recomputed).slice(0, 16)}… (match). Network: ${data.network}.`
-              : "✕ Server recompute mismatch — record may be tampered."
+              : "✕ Server recompute mismatch - record may be tampered."
             : (data.error ?? "Verification failed.")
         );
       } catch {
@@ -133,7 +133,7 @@ export default function EvidenceView({ records }: { records: EvidenceRecord[] })
       <Card className="flex items-start gap-3 border-teal/30 bg-teal/10 p-4">
         <Landmark className="size-5 shrink-0 text-teal" />
         <p className="text-[12px] leading-relaxed text-text-secondary">
-          Only the SHA-256 digest and minimal provenance metadata go on-chain — never raw audio,
+          Only the SHA-256 digest and minimal provenance metadata go on-chain - never raw audio,
           transcripts, embeddings, or phone numbers. Verification compares the local canonical
           hash against the registered hash.
         </p>

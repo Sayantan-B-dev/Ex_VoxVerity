@@ -78,7 +78,7 @@ export default function Landing() {
             <p className="mt-5 max-w-md text-[15px] leading-relaxed text-text-secondary">
               VoxVerity listens for cloned, synthetic, replayed or manipulated voices in
               authorized calls, scores the risk in real time, and tells your analysts exactly
-              what to do next — protecting your money and your people.
+              what to do next - protecting your money and your people.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <button
@@ -131,7 +131,7 @@ export default function Landing() {
               </div>
               <p className="mt-4 text-center text-[11px] leading-relaxed text-text-disabled">
                 Captures only <span className="text-text-secondary">authorized audio</span> through
-                explicit browser permission — never hidden or silent.
+                explicit browser permission - never hidden or silent.
               </p>
             </div>
           </div>
@@ -149,7 +149,7 @@ export default function Landing() {
           <Feature
             icon={VenetianMask}
             title="Call fraud monitoring"
-            body="Suspicious callers get flagged for review — verify the safe ones, escalate the rest, all from one queue."
+            body="Suspicious callers get flagged for review - verify the safe ones, escalate the rest, all from one queue."
           />
           <Feature
             icon={ShieldCheck}
@@ -159,7 +159,7 @@ export default function Landing() {
           <Feature
             icon={Activity}
             title="One clear dashboard"
-            body="Your whole voice-integrity picture in a single view — simple enough for anyone, deep enough for teams."
+            body="Your whole voice-integrity picture in a single view - simple enough for anyone, deep enough for teams."
           />
         </div>
       </section>
@@ -179,8 +179,8 @@ export default function Landing() {
               See your risk in real time
             </h2>
             <p className="mx-auto mt-3 max-w-lg text-[14px] text-text-secondary">
-              Jump into the live dashboard and see how VoxVerity keeps your calls — and your
-              people — safe.
+              Jump into the live dashboard and see how VoxVerity keeps your calls - and your
+              people - safe.
             </p>
             <button
               onClick={enter}

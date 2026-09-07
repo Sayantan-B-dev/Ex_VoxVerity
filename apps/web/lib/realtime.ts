@@ -109,7 +109,7 @@ function computeAcousticAnomaly(
  * dsp) plus a rolling buffer of REAL amplitudes for the waveform.
  *
  * By default it captures this browser's microphone. Pass `stream` (e.g. the
- * peer's WebRTC remote stream) to analyze someone else's voice instead — the
+ * peer's WebRTC remote stream) to analyze someone else's voice instead - the
  * dashboard side of a call analyzes the person who joined, not the creator.
  */
 export function useRealtimeMic(opts?: {
@@ -117,7 +117,7 @@ export function useRealtimeMic(opts?: {
   chunkMs?: number;
   /** External audio source to analyze instead of this browser's mic. */
   stream?: MediaStream | null;
-  /** When true, `stream` is mandatory — never fall back to this browser's mic. */
+  /** When true, `stream` is mandatory - never fall back to this browser's mic. */
   requireStream?: boolean;
   /** Client-selected analysis model (sent with start_session). */
   model?: string;
@@ -136,7 +136,7 @@ export function useRealtimeMic(opts?: {
     ctx?: AudioContext;
     proc?: ScriptProcessorNode;
     stream?: MediaStream;
-    /** True when `stream` was provided externally (peer audio) — never stop its tracks. */
+    /** True when `stream` was provided externally (peer audio) - never stop its tracks. */
     external?: boolean;
     seq?: number;
     sentAt?: Map<number, number>;
@@ -161,7 +161,7 @@ export function useRealtimeMic(opts?: {
           wsToken = tokData.token ?? "";
         }
       } catch {
-        // Token fetch failed — connect without token (dev mode fallback).
+        // Token fetch failed - connect without token (dev mode fallback).
       }
 
       const ws = new WebSocket(aiRealtimeWsUrl(id, wsToken));
@@ -244,7 +244,7 @@ export function useRealtimeMic(opts?: {
         }
       };
       ws.onerror = () => {
-        setError("Realtime WebSocket failed — is the AI service running on :8000?");
+        setError("Realtime WebSocket failed - is the AI service running on :8000?");
         setState("error");
       };
       ws.onclose = () => {
@@ -256,7 +256,7 @@ export function useRealtimeMic(opts?: {
       if (!external) {
         if (opts?.requireStream) {
           // Never analyze this browser's mic when a peer stream is required.
-          setError("The caller's audio stream is not available yet — waiting…");
+          setError("The caller's audio stream is not available yet - waiting…");
           setState("error");
           return;
         }
@@ -318,7 +318,7 @@ export function useRealtimeMic(opts?: {
       };
       src.connect(proc);
       // Only route the local mic to speakers (monitor path). External peer audio
-      // is already played by the <audio> element — routing it again would double it.
+      // is already played by the <audio> element - routing it again would double it.
       if (!refs.current.external) proc.connect(ctx.destination);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not start capture");
@@ -336,7 +336,7 @@ export function useRealtimeMic(opts?: {
     try {
       refs.current.proc?.disconnect();
       refs.current.ctx?.close();
-      // Never stop external stream tracks — they belong to the peer call and the
+      // Never stop external stream tracks - they belong to the peer call and the
       // <audio> element still needs them (useCall's cleanup handles stopping).
       if (!refs.current.external) {
         refs.current.stream?.getTracks().forEach((t) => t.stop());

@@ -7,6 +7,7 @@ import {
   Activity,
   Bell,
   Hexagon,
+  Home,
   LayoutDashboard,
   Link2,
   LogOut,
@@ -134,6 +135,13 @@ export default function Sidebar({
 
         {/* Footer */}
         <div className="space-y-3 border-t border-line p-3">
+          <Link
+            href="/"
+            onClick={() => setIsOpen(false)}
+            className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2 text-xs text-text-secondary transition-all hover:bg-hover hover:text-text-primary"
+          >
+            <Home className="size-4" /> Landing Page
+          </Link>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2 text-xs text-text-secondary transition-all hover:bg-critical/10 hover:text-critical"

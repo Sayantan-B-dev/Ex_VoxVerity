@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireOrg } from "@/lib/api-auth";
 
-/** GET /api/profile — app user + profile + prefs. PATCH — update profile/prefs. */
+/** GET /api/profile - app user + profile + prefs. PATCH - update profile/prefs. */
 export async function GET() {
   const ctx = await requireOrg();
   if ("error" in ctx) return ctx.error;

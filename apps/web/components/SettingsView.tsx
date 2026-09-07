@@ -130,7 +130,7 @@ function Security() {
 }
 
 function fmtDate(iso?: string) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   try {
     return new Date(iso).toLocaleString();
   } catch {
@@ -189,7 +189,7 @@ function ModelSettings() {
           ))}
         </div>
         <p className="mt-3 text-[12px] text-text-secondary">
-          Saved per browser (localStorage) — no database writes. The chosen model is applied to new
+          Saved per browser (localStorage) - no database writes. The chosen model is applied to new
           realtime sessions immediately.
         </p>
       </Section>
@@ -223,7 +223,7 @@ function ModelSettings() {
           <p className="mt-1 text-[11px] text-text-disabled">
             Records ~1 minute of your voice (or short parts), trains an ECAPA-TDNN voiceprint live,
             and saves it to model_artifacts/voiceprints/. The AI service picks it up immediately. The
-            voiceprint stays on this machine — never uploaded or stored on-chain.
+            voiceprint stays on this machine - never uploaded or stored on-chain.
           </p>
         </div>
       </Section>

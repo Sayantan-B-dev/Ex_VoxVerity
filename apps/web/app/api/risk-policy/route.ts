@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireOrg, audit } from "@/lib/api-auth";
 
-/** GET /api/risk-policy — active org policy. PATCH — update thresholds/weights. */
+/** GET /api/risk-policy - active org policy. PATCH - update thresholds/weights. */
 export async function GET() {
   const ctx = await requireOrg();
   if ("error" in ctx) return ctx.error;

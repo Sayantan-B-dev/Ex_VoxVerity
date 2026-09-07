@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { createServiceClient } from "@/lib/db";
 
 /**
- * POST /api/auth/register — real registration (NextAuth DB-only).
+ * POST /api/auth/register - real registration (NextAuth DB-only).
  * Body: { email, password, name }. Creates app_users + profile + org membership.
  */
 export async function POST(req: Request) {

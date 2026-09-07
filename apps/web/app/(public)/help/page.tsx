@@ -8,7 +8,7 @@ const topics = [
   },
   {
     title: "What does a risk score mean?",
-    body: "Scores map to bands: LOW 0–25, MEDIUM 26–50, HIGH 51–75, CRITICAL 76–100. A score is a policy output driven by model signals — it is not a calibrated probability and never an absolute fraud verdict.",
+    body: "Scores map to bands: LOW 0–25, MEDIUM 26–50, HIGH 51–75, CRITICAL 76–100. A score is a policy output driven by model signals - it is not a calibrated probability and never an absolute fraud verdict.",
   },
   {
     title: "What audio can VoxVerity capture?",

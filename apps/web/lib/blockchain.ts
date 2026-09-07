@@ -4,7 +4,7 @@ import { JsonRpcProvider, Wallet, Contract, type TransactionReceipt } from "ethe
 /**
  * Server-only blockchain client for the VoiceIntegrityRegistry contract
  * (blockchain/contracts/VoiceIntegrityRegistry.sol). The private key lives
- * only in server env — never in client bundles.
+ * only in server env - never in client bundles.
  *
  * Env: BLOCKCHAIN_RPC_URL, BLOCKCHAIN_PRIVATE_KEY, VOICE_REGISTRY_ADDRESS.
  * All calls are fail-soft: when the chain is not configured they return

@@ -1,5 +1,5 @@
 /**
- * Deterministic Risk Engine (TypeScript) — mirrors services/ai-service/app/risk/engine.py
+ * Deterministic Risk Engine (TypeScript) - mirrors services/ai-service/app/risk/engine.py
  * so the Next.js server can recompute the 0-100 risk score in real time from the
  * per-signal analysis fields the AI service returns per 3s chunk.
  *
@@ -8,7 +8,7 @@
  */
 
 export interface RiskSignals {
-  /** True when the chunk contained no speech — keep risk LOW. */
+  /** True when the chunk contained no speech - keep risk LOW. */
   no_speech?: boolean;
   spoof_detection?: {
     normalized_score?: number;

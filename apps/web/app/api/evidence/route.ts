@@ -7,7 +7,7 @@ import {
   BLOCKCHAIN_CHAIN_ID,
 } from "@/lib/blockchain";
 
-/** GET /api/evidence — list. POST — package evidence (canonical manifest + SHA-256). */
+/** GET /api/evidence - list. POST - package evidence (canonical manifest + SHA-256). */
 export async function GET() {
   const ctx = await requireOrg();
   if ("error" in ctx) return ctx.error;
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
       contract: chain.contract_address,
     });
   } else {
-    // Not configured or failed — record the attempt so it's visible.
+    // Not configured or failed - record the attempt so it's visible.
     await ctx.supabase.from("blockchain_registrations").insert({
       organization_id: ctx.orgId,
       evidence_id: data.id,

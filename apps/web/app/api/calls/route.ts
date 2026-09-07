@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireOrg, audit } from "@/lib/api-auth";
 
-/** GET /api/calls — list org calls. POST — create call/session row. */
+/** GET /api/calls - list org calls. POST - create call/session row. */
 export async function GET() {
   const ctx = await requireOrg();
   if ("error" in ctx) return ctx.error;

@@ -84,7 +84,7 @@ export default function CallsView({ calls }: { calls: Call[] }) {
           <div>
             <h2 className="text-[18px] font-semibold">Recent Sessions</h2>
             <p className="text-[12px] text-text-secondary">
-              {highRisk > 0 ? `${highRisk} critical-risk session${highRisk > 1 ? "s" : ""} — review first.` : "All sessions within normal risk bands."}
+              {highRisk > 0 ? `${highRisk} critical-risk session${highRisk > 1 ? "s" : ""} - review first.` : "All sessions within normal risk bands."}
             </p>
           </div>
           <div className="hidden items-center gap-2 rounded-lg border border-line bg-elev px-3 py-2 text-[13px] text-text-secondary sm:flex">
@@ -128,7 +128,7 @@ export default function CallsView({ calls }: { calls: Call[] }) {
           ))}
           {calls.length === 0 && (
             <Card className="p-8 text-center text-[13px] text-text-secondary">
-              No calls recorded yet — start one from Live Monitor.
+              No calls recorded yet - start one from Live Monitor.
             </Card>
           )}
         </div>

@@ -42,7 +42,7 @@ export default async function AnalysisDetailPage({
       <PageHeader
         crumb="Analysis"
         title={result.id}
-        subtitle={`Session ${result.sessionId ?? "—"} · ${timeAgo(result.createdAt)}`}
+        subtitle={`Session ${result.sessionId ?? "-"} · ${timeAgo(result.createdAt)}`}
       />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">

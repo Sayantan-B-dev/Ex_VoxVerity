@@ -96,7 +96,7 @@ export default async function AlertDetailPage({
               <TickMeter value={alert.risk} color={alert.risk >= 76 ? "#ff3b3b" : "#ff6b35"} />
             </div>
             <p className="mt-3 text-[11px] text-text-disabled">
-              Contributing signals: synthetic voice · speaker similarity · prosody — engine
+              Contributing signals: synthetic voice · speaker similarity · prosody - engine
               risk-engine@3.2.0
             </p>
           </div>

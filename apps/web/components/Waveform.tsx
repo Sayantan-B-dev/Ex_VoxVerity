@@ -7,7 +7,7 @@ const COUNT = 96;
 /**
  * Real-amplitude waveform. `samples` is a rolling buffer of 0..1 mic
  * amplitudes (RMS per ~64ms frame) from the capture pipeline. When no samples
- * exist the bar sits on a flat baseline — no fabricated animation.
+ * exist the bar sits on a flat baseline - no fabricated animation.
  */
 export default function Waveform({ samples, live }: { samples?: number[]; live?: boolean }) {
   const rendered = useMemo(() => {

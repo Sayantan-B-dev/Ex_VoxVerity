@@ -31,7 +31,7 @@ const RTC_CONFIG: RTCConfiguration = {
  *   idle → createRoom()/joinRoom(code) → calling (waiting for peer)
  *        → active (WebRTC established) → ended
  *
- * The room code is the access control — the code lives on the calls row and
+ * The room code is the access control - the code lives on the calls row and
  * call.id (a UUID) is the WebRTC signaling room id, so both parties reach the
  * same signaling room. Both mics feed the peer call.
  *
@@ -41,7 +41,7 @@ const RTC_CONFIG: RTCConfiguration = {
  *   - The person who JOINS is the CALLER (isHost=false). THEIR voice is the
  *     one integrity-checked. The host's dashboard chunks the caller's audio
  *     (received over WebRTC as the remote stream) to the AI service.
- *   - The host's own mic is only for the call audio — never analyzed.
+ *   - The host's own mic is only for the call audio - never analyzed.
  *
  * Optionally pass `micDeviceId` so each browser can pick which microphone to
  * use (essential when testing two browsers on the same machine).
@@ -180,7 +180,7 @@ export function useCall(
           wsToken = tokData.token ?? "";
         }
       } catch {
-        // Token fetch failed — connect without token (dev mode fallback).
+        // Token fetch failed - connect without token (dev mode fallback).
       }
       const ws = new WebSocket(signalingUrl(room, wsToken));
       wsRef.current = ws;
@@ -230,7 +230,7 @@ export function useCall(
         }
       };
       ws.onerror = () => {
-        setError("Signaling server unreachable — is the AI service running on :8000?");
+        setError("Signaling server unreachable - is the AI service running on :8000?");
         setStatus("failed");
         cleanup();
       };

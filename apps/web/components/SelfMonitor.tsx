@@ -8,7 +8,7 @@ import Waveform from "./Waveform";
 /**
  * Joiner self-monitor (limited by design).
  *
- * Shows only this browser's OWN mic level — a small waveform + speaking state.
+ * Shows only this browser's OWN mic level - a small waveform + speaking state.
  * No risk data, no analysis, nothing sent anywhere: the audio is consumed
  * locally purely to show the person they are being heard. The creator's
  * dashboard does the real analysis of this voice.
@@ -88,7 +88,7 @@ export default function SelfMonitor({
       </div>
       <Waveform samples={waveform} live={speaking} />
       <p className="mt-2 text-[11px] text-text-disabled">
-        Local only — shows that your voice is being captured. The room host&apos;s dashboard analyzes
+        Local only - shows that your voice is being captured. The room host&apos;s dashboard analyzes
         this voice in 3s chunks; nothing extra leaves this browser.
       </p>
     </Card>

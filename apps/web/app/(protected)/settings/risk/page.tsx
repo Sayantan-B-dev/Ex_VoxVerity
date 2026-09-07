@@ -90,7 +90,7 @@ export default async function SettingsRiskPage() {
           </Card>
           {!policy && (
             <p className="text-[12px] text-text-secondary">
-              No active risk policy found — seed data has not been applied.
+              No active risk policy found - seed data has not been applied.
             </p>
           )}
         </div>

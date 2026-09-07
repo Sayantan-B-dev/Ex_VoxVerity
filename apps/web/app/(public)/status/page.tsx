@@ -20,16 +20,16 @@ export default async function StatusPage() {
   const metrics = perf?.metrics ?? {};
   const services = [
     { name: "Web Application", status: "Operational", note: "All routes healthy" },
-    { name: "Supabase Database", status: dbOk ? "Operational" : "Degraded", note: dbOk ? "Reachable · RLS enabled" : "Unreachable — check env + migrations" },
+    { name: "Supabase Database", status: dbOk ? "Operational" : "Degraded", note: dbOk ? "Reachable · RLS enabled" : "Unreachable - check env + migrations" },
     {
       name: "AI Service (FastAPI)",
       status: ai.status === "online" ? "Operational" : ai.status === "not_configured" ? "Degraded" : "Down",
-      note: ai.status === "online" ? `Healthy · inference ${metrics.inference_ms ?? "—"}ms` : ai.message,
+      note: ai.status === "online" ? `Healthy · inference ${metrics.inference_ms ?? "-"}ms` : ai.message,
     },
     {
       name: "WebSocket Realtime",
       status: ai.status === "online" ? "Operational" : "Degraded",
-      note: perf ? `Queue depth ${metrics.queue_depth ?? 0} · uptime ${metrics.ws_uptime_pct ?? "—"}%` : "AI service offline",
+      note: perf ? `Queue depth ${metrics.queue_depth ?? 0} · uptime ${metrics.ws_uptime_pct ?? "-"}%` : "AI service offline",
     },
     {
       name: "Blockchain Registry (Polygon Amoy)",

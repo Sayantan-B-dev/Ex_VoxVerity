@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireOrg, audit } from "@/lib/api-auth";
 
 /**
- * POST /api/call-rooms/join — join a room with its 6-character code.
+ * POST /api/call-rooms/join - join a room with its 6-character code.
  *   Body: { room_code }
  *   Returns { call_id, room_code, creator_name } for an active room.
  *   The code is the access control: any signed-in user with a valid code can

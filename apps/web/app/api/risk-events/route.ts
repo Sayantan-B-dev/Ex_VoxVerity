@@ -3,7 +3,7 @@ import { requireOrg, audit } from "@/lib/api-auth";
 import { evaluateRisk, type RiskResult, type RiskSignals } from "@/lib/risk-engine";
 
 /**
- * POST /api/risk-events — server-side risk write-back for live calls.
+ * POST /api/risk-events - server-side risk write-back for live calls.
  *   Body: { call_id, result }
  *   `result` is one AI-service per-chunk analysis (from the realtime WebSocket
  *   `analysis_complete` payload). This route:

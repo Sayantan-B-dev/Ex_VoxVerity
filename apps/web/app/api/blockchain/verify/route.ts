@@ -3,7 +3,7 @@ import { requireOrg, audit } from "@/lib/api-auth";
 import { verifyEvidenceOnChain, BLOCKCHAIN_NETWORK } from "@/lib/blockchain";
 
 /**
- * POST /api/blockchain/verify — verify evidence hash (local recompute) and
+ * POST /api/blockchain/verify - verify evidence hash (local recompute) and
  * optionally query the AI-service evidence endpoint. Body: { evidence_id }.
  */
 export async function POST(req: Request) {
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   const recomputed = crypto.createHash("sha256").update(JSON.stringify(rec.manifest)).digest("hex");
   const localVerified = recomputed === rec.evidence_hash;
 
-  // On-chain check (fail-soft — returns not_configured without a wallet).
+  // On-chain check (fail-soft - returns not_configured without a wallet).
   const chain = await verifyEvidenceOnChain(rec.id, rec.evidence_hash);
   const verified = localVerified && (chain.ok ? (chain.valid ?? false) : localVerified);
   await ctx.supabase.from("evidence_records").update({ verified }).eq("id", rec.id);

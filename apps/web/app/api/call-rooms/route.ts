@@ -5,11 +5,11 @@ import { createServiceClient } from "@/lib/db";
 import { finalizeCallEvidence } from "@/lib/evidence";
 
 /**
- * POST /api/call-rooms — create a protected call room.
- *   Returns { call_id, room_code } — the creator shares the 6-char code;
+ * POST /api/call-rooms - create a protected call room.
+ *   Returns { call_id, room_code } - the creator shares the 6-char code;
  *   call_id (UUID) doubles as the WebRTC signaling room id.
  *
- * PATCH /api/call-rooms — end a call.
+ * PATCH /api/call-rooms - end a call.
  *   Body: { call_id }  → marks the call completed + finalizes evidence
  *   (idempotent: only ends calls that are still active).
  */
