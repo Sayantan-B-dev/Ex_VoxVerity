@@ -1,60 +1,64 @@
 "use server";
 
 import { auth } from "@/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
-export async function getCalls() {
+async function orgContext() {
   const session = await auth();
-  if (!session?.user?.email) return [];
+  const email = session?.user?.email?.toLowerCase().trim();
+  if (!email) throw new Error("Unauthorized");
+  const supabase = createServiceClient();
+  const { data: user } = await supabase.from("app_users").select("id").eq("email", email).single();
+  if (!user) throw new Error("Unknown user");
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("organization_id")
+    .eq("user_id", user.id)
+    .limit(1)
+    .single();
+  if (!membership?.organization_id) throw new Error("No organization");
+  return { supabase, userId: user.id as string, orgId: membership.organization_id as string };
+}
 
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles").select("organization_id").eq("email", session.user.email).single();
-
-  if (!profile?.organization_id) return [];
-
-  const { data } = await supabase
-    .from("calls")
-    .select("*")
-    .eq("organization_id", profile.organization_id)
-    .order("started_at", { ascending: false });
-
-  return data ?? [];
+export async function getCalls() {
+  try {
+    const { supabase, orgId } = await orgContext();
+    const { data } = await supabase
+      .from("calls")
+      .select("*")
+      .eq("organization_id", orgId)
+      .order("started_at", { ascending: false });
+    return data ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export async function getCallById(id: string) {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const { data } = await supabase.from("calls").select("*").eq("id", id).single();
   return data;
 }
 
 export async function createCall(source: string) {
-  const session = await auth();
-  if (!session?.user?.email) throw new Error("Unauthorized");
-
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles").select("id, organization_id").eq("email", session.user.email).single();
-
-  if (!profile) throw new Error("Profile not found");
+  const { supabase, userId, orgId } = await orgContext();
 
   const { data, error } = await supabase.from("calls").insert({
-    organization_id: profile.organization_id,
-    user_id: profile.id,
+    organization_id: orgId,
+    user_id: userId,
     source,
     status: "active",
   }).select().single();
 
   if (error) throw error;
 
-  // Audit event
   await supabase.from("audit_events").insert({
-    organization_id: profile.organization_id,
-    user_id: profile.id,
+    organization_id: orgId,
     action: "call.created",
     resource_type: "call",
     resource_id: data.id,
+    details: { app_user_id: userId },
   });
 
   revalidatePath("/calls");
@@ -63,31 +67,23 @@ export async function createCall(source: string) {
 }
 
 export async function updateCallStatus(id: string, status: string) {
-  const session = await auth();
-  if (!session?.user?.email) throw new Error("Unauthorized");
-
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles").select("id, organization_id").eq("email", session.user.email).single();
+  const { supabase, userId, orgId } = await orgContext();
 
   const updates: Record<string, unknown> = { status };
   if (status === "completed" || status === "failed") {
     updates.ended_at = new Date().toISOString();
   }
 
-  const { error } = await supabase.from("calls").update(updates).eq("id", id);
+  const { error } = await supabase.from("calls").update(updates).eq("id", id).eq("organization_id", orgId);
   if (error) throw error;
 
-  if (profile) {
-    await supabase.from("audit_events").insert({
-      organization_id: profile.organization_id,
-      user_id: profile.id,
-      action: "call.status_updated",
-      resource_type: "call",
-      resource_id: id,
-      details: { status },
-    });
-  }
+  await supabase.from("audit_events").insert({
+    organization_id: orgId,
+    action: "call.status_updated",
+    resource_type: "call",
+    resource_id: id,
+    details: { status, app_user_id: userId },
+  });
 
   revalidatePath("/calls");
   revalidatePath("/dashboard");

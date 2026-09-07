@@ -1,54 +1,58 @@
 "use server";
 
 import { auth } from "@/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
-export async function getIncidents() {
+async function orgContext() {
   const session = await auth();
-  if (!session?.user?.email) return [];
+  const email = session?.user?.email?.toLowerCase().trim();
+  if (!email) throw new Error("Unauthorized");
+  const supabase = createServiceClient();
+  const { data: user } = await supabase.from("app_users").select("id").eq("email", email).single();
+  if (!user) throw new Error("Unknown user");
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("organization_id")
+    .eq("user_id", user.id)
+    .limit(1)
+    .single();
+  if (!membership?.organization_id) throw new Error("No organization");
+  return { supabase, userId: user.id as string, orgId: membership.organization_id as string };
+}
 
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles").select("organization_id").eq("email", session.user.email).single();
-
-  if (!profile?.organization_id) return [];
-
-  const { data } = await supabase
-    .from("incidents")
-    .select("*")
-    .eq("organization_id", profile.organization_id)
-    .order("created_at", { ascending: false });
-
-  return data ?? [];
+export async function getIncidents() {
+  try {
+    const { supabase, orgId } = await orgContext();
+    const { data } = await supabase
+      .from("incidents")
+      .select("*")
+      .eq("organization_id", orgId)
+      .order("created_at", { ascending: false });
+    return data ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export async function getIncidentById(id: string) {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const { data } = await supabase.from("incidents").select("*").eq("id", id).single();
   return data;
 }
 
 export async function updateIncidentStatus(id: string, status: string) {
-  const session = await auth();
-  if (!session?.user?.email) throw new Error("Unauthorized");
+  const { supabase, userId, orgId } = await orgContext();
 
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles").select("id, organization_id").eq("email", session.user.email).single();
-
-  if (!profile) throw new Error("Profile not found");
-
-  const { error } = await supabase.from("incidents").update({ status }).eq("id", id);
+  const { error } = await supabase.from("incidents").update({ status }).eq("id", id).eq("organization_id", orgId);
   if (error) throw error;
 
   await supabase.from("audit_events").insert({
-    organization_id: profile.organization_id,
-    user_id: profile.id,
+    organization_id: orgId,
     action: "incident.status_updated",
     resource_type: "incident",
     resource_id: id,
-    details: { status },
+    details: { status, app_user_id: userId },
   });
 
   revalidatePath("/incidents");
@@ -56,29 +60,23 @@ export async function updateIncidentStatus(id: string, status: string) {
 }
 
 export async function createIncident(scope: string) {
-  const session = await auth();
-  if (!session?.user?.email) throw new Error("Unauthorized");
-
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles").select("id, organization_id").eq("email", session.user.email).single();
-
-  if (!profile) throw new Error("Profile not found");
+  const { supabase, userId, orgId } = await orgContext();
 
   const { data, error } = await supabase.from("incidents").insert({
-    organization_id: profile.organization_id,
+    organization_id: orgId,
     scope,
     status: "OPEN",
+    owner_id: userId,
   }).select().single();
 
   if (error) throw error;
 
   await supabase.from("audit_events").insert({
-    organization_id: profile.organization_id,
-    user_id: profile.id,
+    organization_id: orgId,
     action: "incident.created",
     resource_type: "incident",
     resource_id: data.id,
+    details: { app_user_id: userId },
   });
 
   revalidatePath("/incidents");

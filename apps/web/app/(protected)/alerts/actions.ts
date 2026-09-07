@@ -1,58 +1,63 @@
 "use server";
 
 import { auth } from "@/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
-export async function getAlerts() {
+async function orgContext() {
   const session = await auth();
-  if (!session?.user?.email) return [];
+  const email = session?.user?.email?.toLowerCase().trim();
+  if (!email) throw new Error("Unauthorized");
+  const supabase = createServiceClient();
+  const { data: user } = await supabase.from("app_users").select("id").eq("email", email).single();
+  if (!user) throw new Error("Unknown user");
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("organization_id")
+    .eq("user_id", user.id)
+    .limit(1)
+    .single();
+  if (!membership?.organization_id) throw new Error("No organization");
+  return { supabase, userId: user.id as string, orgId: membership.organization_id as string };
+}
 
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles").select("organization_id").eq("email", session.user.email).single();
-
-  if (!profile?.organization_id) return [];
-
-  const { data } = await supabase
-    .from("alerts")
-    .select("*")
-    .eq("organization_id", profile.organization_id)
-    .order("created_at", { ascending: false });
-
-  return data ?? [];
+export async function getAlerts() {
+  try {
+    const { supabase, orgId } = await orgContext();
+    const { data } = await supabase
+      .from("alerts")
+      .select("*")
+      .eq("organization_id", orgId)
+      .order("created_at", { ascending: false });
+    return data ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export async function getAlertById(id: string) {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const { data } = await supabase.from("alerts").select("*").eq("id", id).single();
   return data;
 }
 
 export async function acknowledgeAlert(id: string) {
-  const session = await auth();
-  if (!session?.user?.email) throw new Error("Unauthorized");
-
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles").select("id, organization_id").eq("email", session.user.email).single();
-
-  if (!profile) throw new Error("Profile not found");
+  const { supabase, userId, orgId } = await orgContext();
 
   const { error } = await supabase.from("alerts").update({
     acknowledged: true,
-    acknowledged_by: profile.id,
     acknowledged_at: new Date().toISOString(),
-  }).eq("id", id);
+    status: "Acknowledged",
+  }).eq("id", id).eq("organization_id", orgId);
 
   if (error) throw error;
 
   await supabase.from("audit_events").insert({
-    organization_id: profile.organization_id,
-    user_id: profile.id,
+    organization_id: orgId,
     action: "alert.acknowledged",
     resource_type: "alert",
     resource_id: id,
+    details: { app_user_id: userId },
   });
 
   revalidatePath("/alerts");
@@ -60,40 +65,30 @@ export async function acknowledgeAlert(id: string) {
 }
 
 export async function createIncidentFromAlert(alertId: string) {
-  const session = await auth();
-  if (!session?.user?.email) throw new Error("Unauthorized");
+  const { supabase, userId, orgId } = await orgContext();
 
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles").select("id, organization_id").eq("email", session.user.email).single();
-
-  if (!profile) throw new Error("Profile not found");
-
-  // Get alert details
-  const { data: alert } = await supabase.from("alerts").select("*").eq("id", alertId).single();
+  const { data: alert } = await supabase.from("alerts").select("*").eq("id", alertId).eq("organization_id", orgId).single();
   if (!alert) throw new Error("Alert not found");
 
-  // Create incident
   const { data: incident, error: incError } = await supabase.from("incidents").insert({
-    organization_id: profile.organization_id,
+    organization_id: orgId,
     scope: alert.message,
-    risk_score: 0,
+    risk_score: alert.risk_score ?? 0,
     risk_severity: alert.severity,
     status: "OPEN",
+    owner_id: userId,
   }).select().single();
 
   if (incError) throw incError;
 
-  // Link alert to incident
   await supabase.from("alerts").update({ incident_id: incident.id }).eq("id", alertId);
 
   await supabase.from("audit_events").insert({
-    organization_id: profile.organization_id,
-    user_id: profile.id,
+    organization_id: orgId,
     action: "incident.created_from_alert",
     resource_type: "incident",
     resource_id: incident.id,
-    details: { alert_id: alertId },
+    details: { alert_id: alertId, app_user_id: userId },
   });
 
   revalidatePath("/alerts");
