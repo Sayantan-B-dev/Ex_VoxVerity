@@ -1,21 +1,15 @@
 import { handlers } from "@/auth";
-import { headers } from "next/headers";
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-
-function hostMatches(request: NextRequest): boolean {
-  const host = request.headers.get("host") ?? "";
-  const forwardedHost = request.headers.get("x-forwarded-host") ?? "";
-  const effectiveHost = forwardedHost || host;
-  return !effectiveHost || effectiveHost === APP_URL.replace(/^https?:\/\//, "");
-}
-
+/**
+ * Auth.js catch-all route.
+ *
+ * trustHost: true in auth.ts already allows any host.  This route simply
+ * delegates to the Auth.js handlers without additional host gating, so
+ * login works from localhost, LAN IPs (e.g. 192.168.1.5:3000), and
+ * production domains alike.
+ */
 export async function GET(request: NextRequest) {
-  if (!hostMatches(request)) {
-    return NextResponse.json({ error: "Unsupported host" }, { status: 400 });
-  }
-
   return handlers.GET(request);
 }
 
