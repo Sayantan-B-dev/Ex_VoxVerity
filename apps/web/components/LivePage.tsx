@@ -32,8 +32,8 @@ function useElapsed(active: boolean) {
 
 export default function LivePage() {
   const { data: session } = useSession();
-  const { users, loading } = usePresence();
   const selfId = session?.user?.id;
+  const { users, loading } = usePresence(selfId);
   const selfName = session?.user?.name ?? session?.user?.email ?? "User";
   const call = useCall(selfId ? { id: selfId, name: selfName } : undefined);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -110,7 +110,7 @@ export default function LivePage() {
           <p className="text-[12px] text-text-secondary">Checking presence…</p>
         ) : users.length === 0 ? (
           <p className="text-[12px] text-text-secondary">
-            No one else is online right now. Presence updates every 15 seconds.
+            No one is online right now. Presence updates every 15 seconds.
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

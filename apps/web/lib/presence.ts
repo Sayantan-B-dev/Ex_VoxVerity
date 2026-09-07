@@ -27,13 +27,12 @@ function isStale(lastSeen: string | undefined): boolean {
  *   list in sync; rows with last_seen older than 45s are filtered client-side
  *   as a safety net.
  */
-export function usePresence() {
+export function usePresence(selfUserId?: string) {
   const [users, setUsers] = useState<OnlineUser[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Heartbeat
   useEffect(() => {
-    let stopped = false;
     const beat = async () => {
       try {
         await fetch("/api/presence", {
@@ -52,7 +51,6 @@ export function usePresence() {
     };
     window.addEventListener("beforeunload", bye);
     return () => {
-      stopped = true;
       clearInterval(id);
       window.removeEventListener("beforeunload", bye);
       bye();

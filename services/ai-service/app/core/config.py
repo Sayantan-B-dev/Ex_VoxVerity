@@ -8,10 +8,10 @@ class Settings(BaseSettings):
     port: int = 8000
 
     # CORS origins (comma-separated)
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://192.168.1.5:3000"
 
     # WebSocket security
-    ws_allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001"
+    ws_allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001,http://192.168.1.5:3000"
     ws_max_connections_per_ip: int = 5
     ws_room_ttl_seconds: int = 600    # 10 minutes
     ws_session_ttl_seconds: int = 300  # 5 minutes
