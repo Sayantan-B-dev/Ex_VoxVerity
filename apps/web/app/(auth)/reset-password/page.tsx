@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Hexagon, Check, Eye, EyeOff, Lock, Loader2 } from "lucide-react";
 
-export default function ResetPasswordPage() {
+function ResetForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const token = params.get("token") ?? "";
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
@@ -13,7 +15,7 @@ export default function ResetPasswordPage() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
@@ -23,12 +25,29 @@ export default function ResetPasswordPage() {
       setError("Passwords do not match.");
       return;
     }
+    if (!token) {
+      setError("Missing reset token. Request a new reset link.");
+      return;
+    }
     setError("");
     setBusy(true);
-    setTimeout(() => {
-      setBusy(false);
+    try {
+      const res = await fetch("/api/auth/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Could not update password.");
+        return;
+      }
       setDone(true);
-    }, 800);
+    } catch {
+      setError("Could not update password. Check your connection.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -131,5 +150,13 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense>
+      <ResetForm />
+    </Suspense>
   );
 }

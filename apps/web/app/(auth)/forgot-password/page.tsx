@@ -10,8 +10,9 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [resetToken, setResetToken] = useState<string | null>(null);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError("Enter a valid email address.");
@@ -19,10 +20,24 @@ export default function ForgotPasswordPage() {
     }
     setError("");
     setBusy(true);
-    setTimeout(() => {
-      setBusy(false);
+    try {
+      const res = await fetch("/api/auth/forgot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Could not send reset link.");
+        return;
+      }
+      if (data.resetToken) setResetToken(data.resetToken as string);
       setSent(true);
-    }, 800);
+    } catch {
+      setError("Could not send reset link. Check your connection.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -56,8 +71,18 @@ export default function ForgotPasswordPage() {
           </div>
 
           {sent ? (
-            <div className="rounded-xl border border-teal/30 bg-teal/10 p-4 text-center text-[13px] text-teal">
-              Reset link sent to <span className="font-semibold">{email}</span>
+            <div className="space-y-3">
+              <div className="rounded-xl border border-teal/30 bg-teal/10 p-4 text-center text-[13px] text-teal">
+                Reset link sent to <span className="font-semibold">{email}</span>
+              </div>
+              {resetToken && (
+                <button
+                  onClick={() => router.push(`/reset-password?token=${resetToken}`)}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-teal/40 bg-teal/15 py-3 text-[14px] font-semibold text-teal transition-colors hover:bg-teal/25"
+                >
+                  Continue to set new password
+                </button>
+              )}
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-3.5">

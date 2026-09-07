@@ -92,6 +92,25 @@ export default function Auth({ mode: initialMode = "signin" }: { mode?: Mode }) 
       return;
     }
     setBusy("submit");
+    if (mode === "signup") {
+      try {
+        const res = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password, name }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(data.error ?? "Could not create account.");
+          setBusy(false);
+          return;
+        }
+      } catch {
+        setError("Could not create account. Check your connection.");
+        setBusy(false);
+        return;
+      }
+    }
     const result = await signIn("credentials", { email, password, redirect: false });
     if (result?.error) {
       setError("Invalid email or password.");

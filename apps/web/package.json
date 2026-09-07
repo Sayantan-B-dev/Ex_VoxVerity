@@ -12,6 +12,7 @@
     "@auth/core": "^0.41.3",
     "@supabase/ssr": "^0.12.6",
     "@supabase/supabase-js": "^2.115.0",
+    "bcryptjs": "^3.0.3",
     "lucide-react": "^1.40.0",
     "next": "16.3.4",
     "next-auth": "^5.0.0-beta.32",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

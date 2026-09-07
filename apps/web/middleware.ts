@@ -1,14 +1,41 @@
-export { auth as middleware } from "@/auth";
+import { auth } from "@/auth";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+export async function middleware(request: NextRequest) {
+  const response = NextResponse.next({ request });
+  const session = await auth();
+
+  const isProtected =
+    request.nextUrl.pathname.startsWith("/dashboard") ||
+    request.nextUrl.pathname.startsWith("/live") ||
+    request.nextUrl.pathname.startsWith("/calls") ||
+    request.nextUrl.pathname.startsWith("/analysis") ||
+    request.nextUrl.pathname.startsWith("/alerts") ||
+    request.nextUrl.pathname.startsWith("/incidents") ||
+    request.nextUrl.pathname.startsWith("/verification") ||
+    request.nextUrl.pathname.startsWith("/analytics") ||
+    request.nextUrl.pathname.startsWith("/blockchain") ||
+    request.nextUrl.pathname.startsWith("/audit") ||
+    request.nextUrl.pathname.startsWith("/integrations") ||
+    request.nextUrl.pathname.startsWith("/models") ||
+    request.nextUrl.pathname.startsWith("/settings") ||
+    request.nextUrl.pathname.startsWith("/admin") ||
+    request.nextUrl.pathname.startsWith("/lab") ||
+    request.nextUrl.pathname.startsWith("/threat-intelligence") ||
+    request.nextUrl.pathname.startsWith("/profile");
+
+  if (isProtected && !session) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return response;
+}
 
 export const config = {
   matcher: [
-    /*
-     * Match protected routes:
-     * - /dashboard, /live, /calls, /analysis, /alerts, /incidents
-     * - /verification, /analytics, /blockchain, /audit, /integrations
-     * - /models, /settings, /admin, /lab, /threat-intelligence
-     * Exclude public/auth/API/static routes
-     */
-    "/((?!login|register|forgot-password|reset-password|help|status|_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next|api|auth|login|register|forgot-password|reset-password|help|status|favicon.ico).*)",
   ],
 };
