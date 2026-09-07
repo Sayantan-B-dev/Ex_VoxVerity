@@ -10,17 +10,16 @@ export default function AuthCodeErrorPage() {
 
   useEffect(() => {
     const id = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) {
-          clearInterval(id);
-          router.push("/login");
-          return 0;
-        }
-        return c - 1;
-      });
+      setCountdown((c) => (c > 0 ? c - 1 : c));
     }, 1000);
     return () => clearInterval(id);
-  }, [router]);
+  }, []);
+
+  useEffect(() => {
+    if (countdown <= 0) {
+      router.push("/login");
+    }
+  }, [countdown, router]);
 
   return (
     <div className="relative grid h-full place-items-center bg-black px-4 py-10 text-text-primary">

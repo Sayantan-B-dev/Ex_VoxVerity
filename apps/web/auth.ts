@@ -115,9 +115,19 @@ async function provisionOAuthUser(opts: {
   return user;
 }
 
+const googleRedirectUri = process.env.GOOGLE_REDIRECT_URI || undefined;
+
 const providers = [
   ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-    ? [Google({ clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET })]
+    ? [
+        Google({
+          clientId: process.env.GOOGLE_CLIENT_ID,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          // Redirect URI comes from env (GOOGLE_REDIRECT_URI), never hardcoded.
+          // Default (unset) falls back to NEXTAUTH_URL/api/auth/callback/google.
+          ...(googleRedirectUri ? { redirectProxyUrl: googleRedirectUri } : {}),
+        }),
+      ]
     : []),
   ...(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
     ? [GitHub({ clientId: process.env.GITHUB_CLIENT_ID, clientSecret: process.env.GITHUB_CLIENT_SECRET })]

@@ -205,18 +205,6 @@ export default function Auth({ mode: initialMode = "signin" }: { mode?: Mode }) 
               </div>
             </div>
 
-            {mode === "signin" && (
-              <div className="text-right">
-                <button
-                  type="button"
-                  onClick={() => router.push("/forgot-password")}
-                  className="text-[13px] text-text-secondary transition-colors hover:text-teal"
-                >
-                  Forgot password?
-                </button>
-              </div>
-            )}
-
             {error && <p className="text-[12px] text-critical">{error}</p>}
 
             <button

@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
+  Check,
+  Copy,
   Loader2,
   Phone,
-  PhoneIncoming,
   PhoneOff,
   Radio,
   Users,
-  X,
 } from "lucide-react";
 import { Card } from "./primitives";
 import LiveMonitoring from "./LiveMonitoring";
@@ -40,6 +40,9 @@ export default function LivePage() {
   const callIdRef = useRef<string | undefined>(undefined);
   callIdRef.current = call.callId;
 
+  const [joinCode, setJoinCode] = useState("");
+  const [copied, setCopied] = useState(false);
+
   // Keep the hidden audio element bound to the remote (caller) stream — the
   // receiver hears the caller; the receiver's own mic is never analyzed.
   useEffect(() => {
@@ -56,8 +59,7 @@ export default function LivePage() {
     }).catch(() => undefined);
   }, [selfId, call.status]);
 
-  // Every analyzed 3s chunk from the CALLER's mic → server-side risk write-back
-  // (persists chunk risk on the calls row + broadcasts the live feed event).
+  // Every analyzed 3s chunk from the CALLER's mic → server-side risk write-back.
   const onChunk = (msg: Record<string, unknown>) => {
     const callId = callIdRef.current;
     if (!callId) return;
@@ -69,7 +71,18 @@ export default function LivePage() {
   };
 
   const elapsed = useElapsed(call.status === "active");
-  const busy = call.status !== "idle" && call.status !== "ended" && call.status !== "rejected" && call.status !== "failed";
+  const showRoomControls = call.status === "idle" || call.status === "ended" || call.status === "failed";
+
+  async function copyCode() {
+    if (!call.roomCode) return;
+    try {
+      await navigator.clipboard.writeText(call.roomCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable — user can copy manually */
+    }
+  }
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -82,7 +95,8 @@ export default function LivePage() {
             <Radio className="size-6 text-teal" /> Live Monitor
           </h1>
           <p className="text-[13px] text-text-secondary">
-            Who is online right now, and caller-voice integrity analysis in real time.
+            Protected browser-to-browser calls. Create a room, share the code, and the caller's
+            voice is integrity-checked in real time.
           </p>
         </div>
         {call.status === "active" && (
@@ -92,6 +106,144 @@ export default function LivePage() {
           </span>
         )}
       </div>
+
+      {/* Room controls */}
+      <Card className="p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Phone className="size-5 text-teal" />
+          <h2 className="text-[17px] font-semibold">Protected call rooms</h2>
+        </div>
+
+        {showRoomControls && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Create */}
+            <div className="rounded-xl border border-line bg-elev p-5">
+              <p className="text-[13px] font-semibold">Create a room</p>
+              <p className="mt-1 text-[12px] text-text-secondary">
+                Spin up a protected room and get a 6-character code to share with the person you want to talk to.
+              </p>
+              <button
+                onClick={() => void call.createRoom()}
+                disabled={call.status !== "idle"}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-teal py-2.5 text-[13px] font-semibold text-black transition-transform hover:scale-[1.01] disabled:opacity-60"
+              >
+                <Phone className="size-4" /> Create room
+              </button>
+            </div>
+
+            {/* Join */}
+            <div className="rounded-xl border border-line bg-elev p-5">
+              <p className="text-[13px] font-semibold">Join with code</p>
+              <p className="mt-1 text-[12px] text-text-secondary">
+                Someone shared a room code with you? Enter it below to join their protected call.
+              </p>
+              <div className="mt-4 flex gap-2">
+                <input
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))}
+                  placeholder="K7F2P9"
+                  className="w-full rounded-lg border border-line bg-black/40 px-3 py-2.5 font-mono text-[14px] uppercase tracking-widest outline-none placeholder:normal-case placeholder:tracking-normal placeholder:text-text-disabled focus:border-teal/60"
+                />
+                <button
+                  onClick={() => void call.joinRoom(joinCode)}
+                  disabled={joinCode.length !== 6 || call.status !== "idle"}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-teal/40 bg-teal/15 px-4 py-2.5 text-[13px] font-semibold text-teal transition-colors hover:bg-teal/25 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Phone className="size-4" /> Join
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Waiting for a peer — show the code (creator) or joining state (joiner) */}
+        {call.status === "calling" && (
+          <div className="flex flex-col items-center rounded-xl border border-teal/30 bg-teal/5 p-6 text-center">
+            {call.isCaller ? (
+              <>
+                <p className="text-[12px] uppercase tracking-widest text-text-secondary">Your room code</p>
+                <p className="mt-2 font-mono text-[42px] font-bold leading-none tracking-[0.3em] text-teal">
+                  {call.roomCode}
+                </p>
+                <p className="mt-3 text-[12px] text-text-secondary">
+                  Share this code — the other person joins from Live Monitor → “Join with code”.
+                </p>
+                <div className="mt-4 flex items-center gap-2">
+                  <button
+                    onClick={() => void copyCode()}
+                    className="inline-flex items-center gap-2 rounded-lg border border-teal/40 bg-teal/15 px-4 py-2 text-[13px] font-semibold text-teal transition-colors hover:bg-teal/25"
+                  >
+                    {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    {copied ? "Copied" : "Copy code"}
+                  </button>
+                  <button
+                    onClick={call.hangup}
+                    className="inline-flex items-center gap-2 rounded-lg border border-critical/50 px-4 py-2 text-[13px] font-medium text-critical transition-colors hover:bg-critical/10"
+                  >
+                    <PhoneOff className="size-4" /> Cancel room
+                  </button>
+                </div>
+                <p className="mt-4 flex items-center gap-2 text-[12px] text-text-secondary">
+                  <Loader2 className="size-3.5 animate-spin text-teal" /> Waiting for someone to join…
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-[13px] font-semibold">Joining room {call.roomCode}…</p>
+                <p className="mt-1 flex items-center gap-2 text-[12px] text-text-secondary">
+                  <Loader2 className="size-3.5 animate-spin text-teal" /> Connecting to the caller…
+                </p>
+                <button
+                  onClick={call.hangup}
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg border border-critical/50 px-4 py-2 text-[13px] font-medium text-critical transition-colors hover:bg-critical/10"
+                >
+                  <PhoneOff className="size-4" /> Cancel
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {(call.status === "failed" || call.status === "ended") && call.error && (
+          <p className="mt-4 text-[12px] text-critical">{call.error}</p>
+        )}
+      </Card>
+
+      {/* Active call — hang up + analysis panel */}
+      {call.status === "active" && (
+        <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid size-11 shrink-0 place-items-center rounded-full bg-teal/15 text-teal">
+              <Phone className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-[15px] font-semibold">
+                {call.isCaller
+                  ? call.peer
+                    ? `On call with ${call.peer.name}`
+                    : "On call — peer connected"
+                  : `On call with ${call.peer?.name ?? "room creator"}`}
+              </p>
+              <p className="font-mono text-[12px] text-text-secondary">
+                {call.isCaller
+                  ? "Your voice streams to the AI service in 3s chunks — the receiver's voice is not analyzed."
+                  : "Hearing the caller's voice — your microphone is only used for the call, never analyzed."}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={call.hangup}
+            className="inline-flex items-center gap-2 rounded-lg border border-critical/50 px-4 py-2 text-[13px] font-medium text-critical transition-colors hover:bg-critical/10"
+          >
+            <PhoneOff className="size-4" /> Hang up
+          </button>
+        </Card>
+      )}
+
+      {/* Caller-only analysis — only the caller's mic is chunked to the server */}
+      {call.isCaller && call.status === "active" && (
+        <LiveMonitoring autoStart onChunk={onChunk} />
+      )}
 
       {/* Who's online */}
       <Card className="p-6">
@@ -116,147 +268,36 @@ export default function LivePage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {users.map((u) => {
               const isSelf = u.app_user_id === selfId;
-              const canCall = !isSelf && u.status === "online" && !busy;
               const initial = (u.name[0] ?? "?").toUpperCase();
               return (
                 <div
                   key={u.app_user_id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-line bg-elev p-4"
+                  className="flex items-center gap-3 rounded-xl border border-line bg-elev p-4"
                 >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="relative">
-                      <div className="grid size-10 place-items-center rounded-full border border-teal/40 bg-teal/15 text-sm font-bold text-teal">
-                        {initial}
-                      </div>
-                      <span
-                        className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-card ${
-                          u.status === "in_call" ? "bg-warn" : "bg-neon"
-                        }`}
-                      />
+                  <div className="relative">
+                    <div className="grid size-10 place-items-center rounded-full border border-teal/40 bg-teal/15 text-sm font-bold text-teal">
+                      {initial}
                     </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-[14px] font-semibold">
-                        {u.name} {isSelf && <span className="text-[11px] font-normal text-text-disabled">(you)</span>}
-                      </p>
-                      <p className="truncate text-[11px] text-text-secondary">
-                        {u.role} · {u.status === "in_call" ? "in a call" : "available"}
-                      </p>
-                    </div>
+                    <span
+                      className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-card ${
+                        u.status === "in_call" ? "bg-warn" : "bg-neon"
+                      }`}
+                    />
                   </div>
-                  <button
-                    disabled={!canCall}
-                    onClick={() =>
-                      call.call({ id: u.app_user_id, name: u.name, email: u.email })
-                    }
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-teal/40 bg-teal/15 px-3 py-1.5 text-[12px] font-medium text-teal transition-colors hover:bg-teal/25 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Phone className="size-3.5" />
-                    {isSelf ? "You" : u.status === "in_call" ? "Busy" : busy ? "In call" : "Call"}
-                  </button>
+                  <div className="min-w-0">
+                    <p className="truncate text-[14px] font-semibold">
+                      {u.name} {isSelf && <span className="text-[11px] font-normal text-text-disabled">(you)</span>}
+                    </p>
+                    <p className="truncate text-[11px] text-text-secondary">
+                      {u.role} · {u.status === "in_call" ? "in a call" : "available"}
+                    </p>
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
       </Card>
-
-      {/* Incoming call — ring, accept or decline */}
-      {call.status === "incoming" && call.incoming && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4">
-          <Card className="w-full max-w-sm p-6 text-center">
-            <div className="mx-auto mb-4 grid size-16 place-items-center rounded-full bg-teal/15 text-teal">
-              <PhoneIncoming className="size-7" style={{ animation: "pulse-ring 1.2s infinite" }} />
-            </div>
-            <p className="text-[13px] uppercase tracking-wide text-text-secondary">Incoming call</p>
-            <p className="mt-1 text-[22px] font-bold">{call.incoming.caller.name}</p>
-            <p className="font-mono text-[12px] text-text-secondary">{call.incoming.caller.email}</p>
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                onClick={call.reject}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-critical/50 px-4 py-2.5 text-[13px] font-medium text-critical transition-colors hover:bg-critical/10"
-              >
-                <X className="size-4" /> Decline
-              </button>
-              <button
-                onClick={call.accept}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal px-4 py-2.5 text-[13px] font-semibold text-black transition-transform hover:scale-[1.02]"
-              >
-                <Phone className="size-4" /> Accept
-              </button>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Call status banners */}
-      {(call.status === "calling" || call.status === "failed" || call.status === "ended" || call.status === "rejected") && (
-        <Card className="flex items-center justify-between gap-4 p-5">
-          <div className="flex items-center gap-3">
-            {call.status === "calling" ? (
-              <Loader2 className="size-5 animate-spin text-teal" />
-            ) : (
-              <PhoneOff className="size-5 text-text-secondary" />
-            )}
-            <div>
-              <p className="text-[14px] font-semibold">
-                {call.status === "calling" && `Calling ${call.peer?.name ?? ""}…`}
-                {call.status === "failed" && (call.error ?? "Call failed")}
-                {call.status === "ended" && (call.error ?? "Call ended")}
-                {call.status === "rejected" && (call.error ?? "Call declined")}
-              </p>
-              {call.status === "calling" && (
-                <p className="text-[12px] text-text-secondary">Waiting for the other side to answer…</p>
-              )}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            {call.status === "calling" && (
-              <button
-                onClick={call.hangup}
-                className="inline-flex items-center gap-2 rounded-lg border border-critical/50 px-4 py-2 text-[13px] font-medium text-critical transition-colors hover:bg-critical/10"
-              >
-                <PhoneOff className="size-4" /> Cancel
-              </button>
-            )}
-            {(call.status === "ended" || call.status === "rejected" || call.status === "failed") && (
-              <button
-                onClick={call.reset}
-                className="rounded-lg bg-teal px-4 py-2 text-[13px] font-semibold text-black transition-transform hover:scale-[1.02]"
-              >
-                Done
-              </button>
-            )}
-          </div>
-        </Card>
-      )}
-
-      {/* Active call — hang up + analysis panel */}
-      {call.status === "active" && (
-        <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="grid size-11 shrink-0 place-items-center rounded-full bg-teal/15 text-teal">
-              <Phone className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-[15px] font-semibold">On call with {call.peer?.name ?? "peer"}</p>
-              <p className="font-mono text-[12px] text-text-secondary">
-                {call.isCaller ? "Your voice streams to the AI service in 3s chunks — the receiver's voice is not analyzed." : "Hearing the caller's voice — your microphone is only used for the call, never analyzed."}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={call.hangup}
-            className="inline-flex items-center gap-2 rounded-lg border border-critical/50 px-4 py-2 text-[13px] font-medium text-critical transition-colors hover:bg-critical/10"
-          >
-            <PhoneOff className="size-4" /> Hang up
-          </button>
-        </Card>
-      )}
-
-      {/* Caller-only analysis — only the caller's mic is chunked to the server */}
-      {call.isCaller && call.status === "active" && (
-        <LiveMonitoring autoStart onChunk={onChunk} />
-      )}
     </div>
   );
 }

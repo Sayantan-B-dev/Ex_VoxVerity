@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useCallback, useRef, useState } from "react";
 
 export interface CallPeer {
   id: string;
@@ -9,28 +8,11 @@ export interface CallPeer {
   email: string;
 }
 
-export interface IncomingInvite {
-  id: string;
-  room_id: string;
-  call_id: string;
-  caller_id: string;
-  callee_id: string;
-  status: string;
-  caller: CallPeer;
-}
+export type CallStatus = "idle" | "calling" | "active" | "ended" | "failed";
 
-export type CallStatus = "idle" | "calling" | "incoming" | "active" | "ended" | "rejected" | "failed";
-
-interface InviteRow {
-  id: string;
-  room_id: string;
-  call_id: string;
-  caller_id: string;
-  callee_id: string;
-  status: string;
-  caller?:
-    | { id: string; name: string | null; email: string }
-    | Array<{ id: string; name: string | null; email: string }>;
+interface CallStartedPeer {
+  id?: string;
+  name?: string;
 }
 
 function signalingUrl(roomId: string, token?: string): string {
@@ -43,19 +25,16 @@ const RTC_CONFIG: RTCConfiguration = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
 };
 
-function callerOf(row: InviteRow): CallPeer | null {
-  const c = Array.isArray(row.caller) ? row.caller[0] : row.caller;
-  if (!c) return null;
-  return { id: c.id, name: c.name ?? c.email.split("@")[0], email: c.email };
-}
-
 /**
- * Browser-to-browser call state machine for the Live Monitor:
- *   idle → calling (caller) / incoming (receiver) → active → ended
- * Call invites travel through Supabase (call_invites + Realtime); the WebRTC
- * handshake (offer/answer/ICE + hangup) goes through the AI-service signaling
- * socket. Only the CALLER's microphone is ever sent for AI analysis — the
- * receiver's mic only feeds the peer call and is never chunked to the server.
+ * Browser-to-browser call state machine for the Live Monitor, room-code model:
+ *
+ *   idle → createRoom()/joinRoom(code) → calling (waiting for peer)
+ *        → active (WebRTC established) → ended
+ *
+ * The room code is the access control — the code lives on the calls row and
+ * call.id (a UUID) is the WebRTC signaling room id, so both parties reach the
+ * same signaling room. Only the CALLER's microphone is ever sent for AI
+ * analysis; the receiver's mic only feeds the peer call and is never chunked.
  */
 export function useCall(self: { id: string; name: string } | null | undefined) {
   const selfId = self?.id;
@@ -64,9 +43,8 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
   const [status, setStatus] = useState<CallStatus>("idle");
   const [peer, setPeer] = useState<CallPeer | null>(null);
   const [isCaller, setIsCaller] = useState(false);
-  const [roomId, setRoomId] = useState<string | undefined>();
+  const [roomCode, setRoomCode] = useState<string | undefined>();
   const [callId, setCallId] = useState<string | undefined>();
-  const [incoming, setIncoming] = useState<IncomingInvite | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,17 +54,13 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
   const remoteRef = useRef<MediaStream | null>(null);
   const statusRef = useRef<CallStatus>("idle");
   const isCallerRef = useRef(false);
-  const inviteIdRef = useRef<string | null>(null);
-  const ringTimerRef = useRef<number | null>(null);
+  const callIdRef = useRef<string | undefined>(undefined);
 
   statusRef.current = status;
   isCallerRef.current = isCaller;
+  callIdRef.current = callId;
 
   const cleanup = useCallback(() => {
-    if (ringTimerRef.current) {
-      clearTimeout(ringTimerRef.current);
-      ringTimerRef.current = null;
-    }
     try {
       wsRef.current?.close();
     } catch {
@@ -115,67 +89,10 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
     setStatus("idle");
     setPeer(null);
     setIsCaller(false);
-    setRoomId(undefined);
+    setRoomCode(undefined);
     setCallId(undefined);
-    setIncoming(null);
     setError(null);
-    inviteIdRef.current = null;
   }, [cleanup]);
-
-  // ── Watch invites: incoming (callee) + outcome (caller) ───────────────────
-  useEffect(() => {
-    if (!selfId) return;
-    const supabase = createClient();
-    const loadRinging = async () => {
-      const { data } = await supabase
-        .from("call_invites")
-        .select("id, room_id, call_id, caller_id, callee_id, status, caller:caller_id(id, name, email)")
-        .eq("callee_id", selfId)
-        .eq("status", "ringing")
-        .order("created_at", { ascending: false })
-        .limit(1);
-      const row = (data ?? [])[0] as InviteRow | undefined;
-      if (row && statusRef.current === "idle") {
-        const caller = callerOf(row);
-        if (caller) {
-          setIncoming({
-            id: row.id,
-            room_id: row.room_id,
-            call_id: row.call_id,
-            caller_id: row.caller_id,
-            callee_id: row.callee_id,
-            status: row.status,
-            caller,
-          });
-        }
-      }
-    };
-    loadRinging();
-
-    const channel = supabase
-      .channel("vox-call-invites")
-      .on("postgres_changes", { event: "*", schema: "public", table: "call_invites" }, (payload) => {
-        const row = payload.new as InviteRow;
-        if (row.callee_id === selfId && row.status === "ringing" && statusRef.current === "idle") {
-          loadRinging();
-        }
-        // Caller side: my ringing invite was rejected/ended by the callee.
-        if (row.caller_id === selfId && statusRef.current === "calling" && isCallerRef.current) {
-          if (row.status === "rejected") {
-            setError("Call declined");
-            setStatus("rejected");
-            cleanup();
-          } else if (row.status === "ended") {
-            setStatus("ended");
-            cleanup();
-          }
-        }
-      })
-      .subscribe();
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [selfId, cleanup]);
 
   // ── Signaling + WebRTC ────────────────────────────────────────────────────
   async function startRtc(role: "caller" | "receiver") {
@@ -212,7 +129,7 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
   }
 
   const openSignaling = useCallback(
-    async (room: string, role: "caller" | "receiver", other: CallPeer) => {
+    async (room: string, role: "caller" | "receiver") => {
       // Fetch a short-lived WS auth token from the Next.js server.
       let wsToken = "";
       try {
@@ -226,7 +143,6 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
       }
       const ws = new WebSocket(signalingUrl(room, wsToken));
       wsRef.current = ws;
-      void other;
 
       ws.onopen = () => {
         ws.send(JSON.stringify({ type: "join", role, peer_id: selfId, peer_name: selfName ?? "User" }));
@@ -240,13 +156,15 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
         }
         switch (msg.type) {
           case "peer_joined":
+          case "call_started": {
+            const p = msg.peer as CallStartedPeer | undefined;
+            if (p?.name) {
+              setPeer((cur) => cur ?? { id: p.id ?? "", name: p.name ?? "", email: "" });
+            }
             setStatus("active");
             void startRtc(role);
             break;
-          case "call_started":
-            setStatus("active");
-            void startRtc(role);
-            break;
+          }
           case "offer":
             void handleOffer(msg.sdp as string);
             break;
@@ -286,71 +204,60 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
   );
 
   // ── Public actions ────────────────────────────────────────────────────────
-  async function call(target: CallPeer) {
-    if (!selfId) return;
+  /** Creator: spin up a room and get the shareable 6-char code. */
+  async function createRoom(): Promise<string | null> {
+    if (!selfId) return null;
     setError(null);
     try {
-      const res = await fetch("/api/call-invites", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callee_id: target.id }),
-      });
+      const res = await fetch("/api/call-rooms", { method: "POST" });
       const data = await res.json();
-      if (!res.ok || !data.invite) throw new Error(data.error ?? "Could not start call");
-      const inv = data.invite as InviteRow;
-      inviteIdRef.current = inv.id;
-      setPeer(target);
+      if (!res.ok || !data.call_id || !data.room_code) {
+        throw new Error(data.error ?? "Could not create a room");
+      }
+      setCallId(data.call_id as string);
+      setRoomCode(data.room_code as string);
       setIsCaller(true);
-      setRoomId(inv.room_id);
-      setCallId(inv.call_id);
       setStatus("calling");
-      openSignaling(inv.room_id, "caller", target);
-
-      ringTimerRef.current = window.setTimeout(() => {
-        if (statusRef.current === "calling") {
-          setError("No answer");
-          setStatus("ended");
-          cleanup();
-          void fetch("/api/call-invites", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ invite_id: inviteIdRef.current, action: "end" }),
-          });
-        }
-      }, 30_000);
+      void openSignaling(data.call_id as string, "caller");
+      return data.room_code as string;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not start call");
+      setError(e instanceof Error ? e.message : "Could not create a room");
       setStatus("failed");
+      return null;
     }
   }
 
-  async function accept() {
-    if (!incoming || !selfId) return;
-    const inv = incoming;
-    inviteIdRef.current = inv.id;
-    const other: CallPeer = { id: inv.caller_id, name: inv.caller.name, email: inv.caller.email };
-    setPeer(other);
-    setIsCaller(false);
-    setRoomId(inv.room_id);
-    setCallId(inv.call_id);
-    setIncoming(null);
-    setStatus("calling"); // waiting for the caller's WebRTC offer
-    void fetch("/api/call-invites", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ invite_id: inv.id, action: "accept" }),
-    });
-    openSignaling(inv.room_id, "receiver", other);
-  }
-
-  async function reject() {
-    if (!incoming) return;
-    void fetch("/api/call-invites", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ invite_id: incoming.id, action: "reject" }),
-    });
-    setIncoming(null);
+  /** Joiner: resolve a 6-char code to the room and connect as receiver. */
+  async function joinRoom(code: string): Promise<boolean> {
+    if (!selfId) return false;
+    setError(null);
+    const normalized = code.trim().toUpperCase();
+    try {
+      const res = await fetch("/api/call-rooms/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ room_code: normalized }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.call_id) {
+        throw new Error(data.error ?? "Could not join the room");
+      }
+      setCallId(data.call_id as string);
+      setRoomCode(data.room_code as string);
+      setIsCaller(false);
+      setPeer({
+        id: "",
+        name: (data.creator_name as string) ?? "Room creator",
+        email: "",
+      });
+      setStatus("calling");
+      void openSignaling(data.call_id as string, "receiver");
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not join the room");
+      setStatus("failed");
+      return false;
+    }
   }
 
   async function hangup() {
@@ -359,11 +266,11 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
     } catch {
       /* noop */
     }
-    if (inviteIdRef.current && (isCallerRef.current || statusRef.current === "active")) {
-      void fetch("/api/call-invites", {
+    if (callIdRef.current) {
+      void fetch("/api/call-rooms", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invite_id: inviteIdRef.current, action: "end" }),
+        body: JSON.stringify({ call_id: callIdRef.current }),
       });
     }
     setStatus("ended");
@@ -374,14 +281,12 @@ export function useCall(self: { id: string; name: string } | null | undefined) {
     status,
     peer,
     isCaller,
-    roomId,
+    roomCode,
     callId,
-    incoming,
     remoteStream,
     error,
-    call,
-    accept,
-    reject,
+    createRoom,
+    joinRoom,
     hangup,
     reset,
   };
