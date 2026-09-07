@@ -63,12 +63,25 @@ function CircularProgress({ value, color }: { value: number; color: string }) {
 
 export default function LiveMonitoring({
   session,
+  autoStart,
+  onChunk,
 }: {
   session?: LiveSession;
+  /** Start mic capture automatically on mount (caller side of a live call). */
+  autoStart?: boolean;
+  /** Fired per analyzed 3s chunk (server write-back in the caller flow). */
+  onChunk?: (msg: Record<string, unknown>) => void;
 }) {
   const duration = useDuration(session?.durationSec ?? 0);
   const acoustic = [0.4, 0.6, 0.9, 0.5, 0.95, 0.3, 0.85, 0.45];
-  const live = useRealtimeMic({ source: "microphone" });
+  const live = useRealtimeMic({ source: "microphone", onResult: onChunk });
+
+  useEffect(() => {
+    if (autoStart && live.state === "idle") {
+      live.start();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
   const rtAlerts = useSupabaseTable("alerts");
   const isLive = live.state === "live" && live.latest;
   const risk = isLive ? live.latest!.risk : session?.risk ?? 0;

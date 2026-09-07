@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireOrg, audit } from "@/lib/api-auth";
+import { verifyEvidenceOnChain, BLOCKCHAIN_NETWORK } from "@/lib/blockchain";
 
 /**
  * POST /api/blockchain/verify — verify evidence hash (local recompute) and
@@ -20,18 +21,22 @@ export async function POST(req: Request) {
 
   const { default: crypto } = await import("crypto");
   const recomputed = crypto.createHash("sha256").update(JSON.stringify(rec.manifest)).digest("hex");
-  const verified = recomputed === rec.evidence_hash;
-  await ctx.supabase.from("evidence_records").update({ verified }).eq("id", rec.id);
-  await audit(ctx.supabase, ctx.orgId, ctx.userId, "evidence.verify", "evidence", rec.id, { verified });
+  const localVerified = recomputed === rec.evidence_hash;
 
-  // Chain status from env (contract address / rpc) — informational.
+  // On-chain check (fail-soft — returns not_configured without a wallet).
+  const chain = await verifyEvidenceOnChain(rec.id, rec.evidence_hash);
+  const verified = localVerified && (chain.ok ? (chain.valid ?? false) : localVerified);
+  await ctx.supabase.from("evidence_records").update({ verified }).eq("id", rec.id);
+  await audit(ctx.supabase, ctx.orgId, ctx.userId, "evidence.verify", "evidence", rec.id, { verified, on_chain: chain.status });
+
   return NextResponse.json({
     ok: true,
     verified,
     evidence_hash: rec.evidence_hash,
     recomputed,
+    on_chain: chain,
     blockchain_tx: rec.blockchain_tx,
-    network: rec.blockchain_network ?? "Polygon Amoy",
+    network: rec.blockchain_network ?? BLOCKCHAIN_NETWORK,
     contract: process.env.VOICE_REGISTRY_ADDRESS ?? null,
   });
 }

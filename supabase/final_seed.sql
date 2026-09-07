@@ -280,18 +280,81 @@ INSERT INTO verification_requests (organization_id, call_id, status, method, not
   ('00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000004', 'ESCALATED', 'Human Review', 'Escalated to vendor-security team for line audit.')
 ON CONFLICT DO NOTHING;
 
+
 -- ----------------------------------------------------------------------------
 -- 16. Analysis Lab files
 -- ----------------------------------------------------------------------------
-INSERT INTO lab_audio_files (id, organization_id, app_user_id, name, duration_sec, sample_rate, channels, size_kb, analyzed) VALUES
-  ('70000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'sample-cfo-clone.wav', 12, 16000, 1, 384, true),
-  ('70000000-0000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'sample-natural-speech.wav', 9, 16000, 1, 288, true),
-  ('70000000-0000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'sample-replay-segment.wav', 6, 16000, 1, 192, false)
+
+INSERT INTO lab_audio_files (
+  id,
+  organization_id,
+  app_user_id,
+  name,
+  duration_sec,
+  sample_rate,
+  channels,
+  size_kb,
+  analyzed
+) VALUES
+  (
+    '70000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000001',
+    'a0000000-0000-0000-0000-000000000001',
+    'sample-cfo-clone.wav',
+    12,
+    16000,
+    1,
+    384,
+    true
+  ),
+  (
+    '70000000-0000-0000-0000-000000000002',
+    '00000000-0000-0000-0000-000000000001',
+    'a0000000-0000-0000-0000-000000000001',
+    'sample-natural-speech.wav',
+    9,
+    16000,
+    1,
+    288,
+    true
+  ),
+  (
+    '70000000-0000-0000-0000-000000000003',
+    '00000000-0000-0000-0000-000000000001',
+    'a0000000-0000-0000-0000-000000000001',
+    'sample-replay-segment.wav',
+    6,
+    16000,
+    1,
+    192,
+    false
+  )
+ON CONFLICT (id) DO NOTHING;
+
 
 -- Lab file linkage + prosody/notes (Analysis Lab) — AFTER lab files exist (FK)
-UPDATE analysis_results SET file_id = '70000000-0000-0000-0000-000000000001', prosody_anomaly = 0.69, notes = 'Strong synthetic-signal indicators across all windows.' WHERE id IN ('20000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000002');
-UPDATE analysis_results SET file_id = '70000000-0000-0000-0000-000000000002', prosody_anomaly = 0.14, notes = 'Natural prosody and spectral pattern.' WHERE id IN ('20000000-0000-0000-0000-000000000003','20000000-0000-0000-0000-000000000004');
-ON CONFLICT (id) DO NOTHING;
+
+UPDATE analysis_results
+SET
+  file_id = '70000000-0000-0000-0000-000000000001',
+  prosody_anomaly = 0.69,
+  notes = 'Strong synthetic-signal indicators across all windows.'
+WHERE id IN (
+  '20000000-0000-0000-0000-000000000001',
+  '20000000-0000-0000-0000-000000000002'
+);
+
+
+UPDATE analysis_results
+SET
+  file_id = '70000000-0000-0000-0000-000000000002',
+  prosody_anomaly = 0.14,
+  notes = 'Natural prosody and spectral pattern.'
+WHERE id IN (
+  '20000000-0000-0000-0000-000000000003',
+  '20000000-0000-0000-0000-000000000004'
+);
+
 
 -- ----------------------------------------------------------------------------
 -- 17. Threats / analytics / pipeline / lines / insights

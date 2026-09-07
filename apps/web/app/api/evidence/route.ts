@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { requireOrg, audit } from "@/lib/api-auth";
+import {
+  registerEvidenceOnChain,
+  BLOCKCHAIN_NETWORK,
+  BLOCKCHAIN_CHAIN_ID,
+} from "@/lib/blockchain";
 
 /** GET /api/evidence — list. POST — package evidence (canonical manifest + SHA-256). */
 export async function GET() {
@@ -45,6 +50,50 @@ export async function POST(req: Request) {
     .select("id, evidence_hash")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // ── On-chain fingerprint registration (auto-triggered) ──────────────────
+  // Hash is registered on the VoiceIntegrityRegistry contract when the chain
+  // is configured; otherwise the record is kept with tx=NULL (pending wiring).
+  const chain = await registerEvidenceOnChain(data.evidence_hash, data.id, new Date());
+  if (chain.ok) {
+    await ctx.supabase.from("blockchain_registrations").insert({
+      organization_id: ctx.orgId,
+      evidence_id: data.id,
+      network: BLOCKCHAIN_NETWORK,
+      chain_id: BLOCKCHAIN_CHAIN_ID,
+      contract_address: chain.contract_address,
+      tx_hash: chain.tx_hash,
+      block_number: chain.block_number ?? null,
+      status: "confirmed",
+    });
+    await ctx.supabase
+      .from("evidence_records")
+      .update({ blockchain_tx: chain.tx_hash, verified: true })
+      .eq("id", data.id);
+    await audit(ctx.supabase, ctx.orgId, ctx.userId, "blockchain.register", "evidence", data.id, {
+      tx_hash: chain.tx_hash,
+      contract: chain.contract_address,
+    });
+  } else {
+    // Not configured or failed — record the attempt so it's visible.
+    await ctx.supabase.from("blockchain_registrations").insert({
+      organization_id: ctx.orgId,
+      evidence_id: data.id,
+      network: BLOCKCHAIN_NETWORK,
+      chain_id: BLOCKCHAIN_CHAIN_ID,
+      status: chain.status,
+    });
+  }
+
   await audit(ctx.supabase, ctx.orgId, ctx.userId, "evidence.register", "evidence", data.id, { hash_algorithm: "SHA-256" });
-  return NextResponse.json({ ok: true, id: data.id, evidence_hash: data.evidence_hash, manifest }, { status: 201 });
+  return NextResponse.json(
+    {
+      ok: true,
+      id: data.id,
+      evidence_hash: data.evidence_hash,
+      manifest,
+      blockchain: chain,
+    },
+    { status: 201 }
+  );
 }

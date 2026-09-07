@@ -136,6 +136,21 @@ CREATE INDEX idx_calls_org ON calls(organization_id);
 CREATE INDEX idx_calls_user ON calls(user_id);
 CREATE INDEX idx_calls_status ON calls(status);
 
+-- Call invitations (ring/accept/reject state machine between org users)
+CREATE TABLE call_invites (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+  room_id TEXT NOT NULL,
+  call_id UUID REFERENCES calls(id) ON DELETE CASCADE,
+  caller_id UUID REFERENCES app_users(id) ON DELETE CASCADE,
+  callee_id UUID REFERENCES app_users(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'ringing' CHECK (status IN ('ringing','accepted','rejected','ended')),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX idx_invites_callee ON call_invites(callee_id, status);
+CREATE INDEX idx_invites_room ON call_invites(room_id);
+
 CREATE TABLE lab_audio_files (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
@@ -521,6 +536,7 @@ ALTER TABLE pipeline_health ENABLE ROW LEVEL SECURITY;
 ALTER TABLE protected_lines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dashboard_insights ENABLE ROW LEVEL SECURITY;
 ALTER TABLE presence ENABLE ROW LEVEL SECURITY;
+ALTER TABLE call_invites ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   CREATE POLICY "browser read app_users" ON app_users FOR SELECT TO anon, authenticated USING (true);
@@ -555,6 +571,7 @@ DO $$ BEGIN
   CREATE POLICY "browser read lines" ON protected_lines FOR SELECT TO anon, authenticated USING (true);
   CREATE POLICY "browser read insights" ON dashboard_insights FOR SELECT TO anon, authenticated USING (true);
   CREATE POLICY "browser read presence" ON presence FOR SELECT TO anon, authenticated USING (true);
+  CREATE POLICY "browser read invites" ON call_invites FOR SELECT TO anon, authenticated USING (true);
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -588,6 +605,7 @@ DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE alerts;
   ALTER PUBLICATION supabase_realtime ADD TABLE calls;
   ALTER PUBLICATION supabase_realtime ADD TABLE analysis_results;
+  ALTER PUBLICATION supabase_realtime ADD TABLE call_invites;
 EXCEPTION WHEN undefined_object OR duplicate_object THEN NULL;
 END $$;
 

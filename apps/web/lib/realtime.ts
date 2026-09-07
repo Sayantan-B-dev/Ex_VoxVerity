@@ -63,7 +63,12 @@ export interface LiveChunk {
   at: string;
 }
 
-export function useRealtimeMic(opts?: { source?: string; chunkMs?: number }) {
+export function useRealtimeMic(opts?: {
+  source?: string;
+  chunkMs?: number;
+  /** Fired with each analysis result so the caller can persist/recompute risk server-side. */
+  onResult?: (msg: Record<string, unknown>) => void;
+}) {
   const [state, setState] = useState<"idle" | "connecting" | "live" | "error" | "stopped">("idle");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [chunks, setChunks] = useState<LiveChunk[]>([]);
@@ -92,6 +97,7 @@ export function useRealtimeMic(opts?: { source?: string; chunkMs?: number }) {
           const msg = JSON.parse(ev.data);
           if (msg.type === "analysis_complete" || msg.type === "risk_update" || msg.result) {
             const r = msg.result ?? msg;
+            opts?.onResult?.(r as Record<string, unknown>);
             const risk = r.risk?.score ?? r.risk_score ?? 0;
             const severity = r.risk?.severity ?? r.risk_severity ?? "LOW";
             setChunks((prev) => [
