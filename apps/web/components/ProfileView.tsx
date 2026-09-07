@@ -1,40 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import { useSession } from "next-auth/react";
-import {
-  Camera,
-  Clock,
-  Download,
-  IdCard,
-  KeyRound,
-  Lock,
-  Pencil,
-  ShieldCheck,
-  Smartphone,
-  SlidersHorizontal,
-  Trash2,
-  TriangleAlert,
-  X,
-} from "lucide-react";
+import { IdCard } from "lucide-react";
 import { Card } from "./primitives";
-import { Btn, Field, Input, Select, Toggle } from "./forms";
+
+export interface ProfileProps {
+  name: string;
+  email: string;
+  role: string;
+  phone: string;
+  department: string;
+  job_title: string;
+  location: string;
+  first_name: string;
+  last_name: string;
+}
 
 function SectionCard({
   icon: Icon,
   title,
   subtitle,
   children,
-  className,
 }: {
   icon: React.ElementType;
   title: string;
   subtitle: string;
   children: React.ReactNode;
-  className?: string;
 }) {
   return (
-    <Card className={`p-6 ${className ?? ""}`}>
+    <Card className="p-6">
       <div className="mb-5 flex items-start gap-3">
         <div className="grid size-9 place-items-center rounded-lg bg-elev text-teal">
           <Icon className="size-5" />
@@ -49,60 +42,21 @@ function SectionCard({
   );
 }
 
-function Row({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-3 border-b border-line py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between">
-      {children}
-    </div>
-  );
-}
+export default function ProfileView({ profile }: { profile: ProfileProps | null }) {
+  const name = profile?.name ?? "—";
+  const email = profile?.email ?? "—";
+  const role = profile?.role ?? "operator";
+  const initial = (name[0] ?? "U").toUpperCase();
 
-const security = [
-  {
-    icon: Lock,
-    color: "text-teal",
-    title: "Password",
-    sub: "Last changed: 45 days ago",
-    action: "Change Password",
-  },
-  {
-    icon: KeyRound,
-    color: "text-neon",
-    title: "Two-Factor Authentication",
-    sub: "Authenticator App",
-    tag: "Enabled",
-    action: "Manage 2FA",
-  },
-  {
-    icon: Smartphone,
-    color: "text-purple",
-    title: "Active Sessions",
-    sub: "Currently logged in on 3 devices",
-    action: "View Sessions",
-  },
-  {
-    icon: Clock,
-    color: "text-warn",
-    title: "Login History",
-    sub: "View your recent login activity",
-    action: "View History",
-  },
-  {
-    icon: ShieldCheck,
-    color: "text-neon",
-    title: "Account Status",
-    sub: "Active and in Good Standing",
-  },
-];
-
-export default function ProfileView() {
-  const { data: session } = useSession();
-  const [confirm, setConfirm] = useState("");
-  const [modal, setModal] = useState(false);
-
-  const name = session?.user?.name ?? "VoxVerity User";
-  const email = session?.user?.email ?? "user@voxverity.io";
-  const [first, last] = name.split(" ");
+  const fields: { label: string; value: string }[] = [
+    { label: "First Name", value: profile?.first_name ?? "—" },
+    { label: "Last Name", value: profile?.last_name ?? "—" },
+    { label: "Email", value: email },
+    { label: "Phone", value: profile?.phone || "—" },
+    { label: "Department", value: profile?.department || "—" },
+    { label: "Job Title", value: profile?.job_title || "—" },
+    { label: "Location", value: profile?.location || "—" },
+  ];
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -111,206 +65,29 @@ export default function ProfileView() {
         <h1 className="text-[26px] font-bold tracking-tight">Profile</h1>
       </div>
 
-      {/* Header card */}
       <Card glow="rgba(53,214,193,0.12)" className="p-6 sm:p-8">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
-          <div className="relative">
-            <img
-              src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=240&h=240&fit=crop&auto=format"
-              alt={name}
-              className="size-[120px] rounded-full object-cover ring-[3px] ring-teal"
-            />
-            <span className="absolute bottom-2 right-2 size-3.5 rounded-full border-2 border-card bg-neon" />
+          <div className="grid size-[96px] place-items-center rounded-full border border-teal/40 bg-teal/15 text-[36px] font-bold text-teal">
+            {initial}
           </div>
           <div className="flex-1 text-center sm:text-left">
-            <div className="flex flex-col items-center gap-2 sm:flex-row">
-              <h2 className="text-[24px] font-bold">{name}</h2>
-              <span className="rounded-md bg-neon/15 px-2 py-0.5 text-[11px] font-semibold text-neon">
-                ACTIVE
-              </span>
-            </div>
+            <h2 className="text-[24px] font-bold">{name}</h2>
             <p className="mt-1 text-[15px] text-text-secondary">{email}</p>
-            <p className="text-[13px] font-semibold text-teal">Security Operations</p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-2">
-            <Btn variant="secondary">
-              <Camera className="size-4" /> Change Photo
-            </Btn>
-            <Btn variant="primary">
-              <Pencil className="size-4" /> Edit Profile
-            </Btn>
+            <p className="text-[13px] font-semibold text-teal">{role}</p>
           </div>
         </div>
       </Card>
 
-      {/* Personal information */}
-      <SectionCard icon={IdCard} title="Personal Information" subtitle="Update your personal details">
+      <SectionCard icon={IdCard} title="Personal Information" subtitle="Details stored in your profile">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="First Name">
-            <Input defaultValue={first ?? ""} />
-          </Field>
-          <Field label="Last Name">
-            <Input defaultValue={last ?? ""} />
-          </Field>
-          <Field label="Email Address">
-            <Input type="email" defaultValue={email} />
-          </Field>
-          <Field label="Phone Number">
-            <Input defaultValue="+1 415 555 0142" />
-          </Field>
-          <Field label="Department">
-            <Select value="Security Operations" options={["Security Operations", "Fraud", "Compliance", "Engineering"]} />
-          </Field>
-          <Field label="Job Title">
-            <Input defaultValue="Security Analyst" />
-          </Field>
-          <Field label="Location">
-            <Input defaultValue="San Francisco, CA" />
-          </Field>
-          <div />
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <Btn variant="secondary">Cancel</Btn>
-          <Btn variant="primary">Save Changes</Btn>
-        </div>
-      </SectionCard>
-
-      {/* Account security */}
-      <SectionCard
-        icon={Lock}
-        title="Account Security"
-        subtitle="Manage your account security and authentication"
-      >
-        <div className="-my-1">
-          {security.map((s) => (
-            <Row key={s.title}>
-              <div className="flex items-center gap-3">
-                <s.icon className={`size-5 ${s.color}`} />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-[14px] font-medium">{s.title}</p>
-                    {s.tag && (
-                      <span className="rounded bg-neon/15 px-1.5 py-0.5 text-[10px] font-semibold text-neon">
-                        {s.tag}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[12px] text-text-secondary">{s.sub}</p>
-                </div>
-              </div>
-              {s.action && <Btn variant="secondary">{s.action}</Btn>}
-            </Row>
+          {fields.map((f) => (
+            <div key={f.label} className="rounded-xl border border-line bg-elev px-4 py-3">
+              <p className="text-[11px] uppercase tracking-wide text-text-disabled">{f.label}</p>
+              <p className="mt-0.5 text-[14px] font-medium text-text-primary">{f.value}</p>
+            </div>
           ))}
         </div>
       </SectionCard>
-
-      {/* Preferences */}
-      <SectionCard icon={SlidersHorizontal} title="Preferences" subtitle="Customize your experience">
-        <div className="-my-1">
-          {[
-            { l: "Language", s: "Select your preferred language", o: ["English", "Spanish", "French", "German", "Japanese", "Chinese"], w: "180px" },
-            { l: "Time Zone", s: "Set your local time zone", o: ["UTC +5:30 (IST)", "UTC -8:00 (PST)", "UTC +0:00 (GMT)"], w: "220px" },
-            { l: "Date Format", s: "Choose how dates are displayed (e.g., 12/29/2026)", o: ["MM/DD/YYYY", "DD/MM/YYYY", "YYYY-MM-DD"], w: "180px" },
-            { l: "Theme", s: "Dark Mode (Recommended for security)", o: ["Dark", "Light"], w: "160px" },
-          ].map((p) => (
-            <Row key={p.l}>
-              <div>
-                <p className="text-[14px] font-medium">{p.l}</p>
-                <p className="text-[12px] text-text-secondary">{p.s}</p>
-              </div>
-              <Select value={p.o[0]} options={p.o} width={p.w} />
-            </Row>
-          ))}
-          <Row>
-            <div>
-              <p className="text-[14px] font-medium">Email Notifications</p>
-              <p className="text-[12px] text-text-secondary">Receive alerts via email</p>
-            </div>
-            <Toggle defaultOn />
-          </Row>
-        </div>
-      </SectionCard>
-
-      {/* Account actions */}
-      <SectionCard
-        icon={Download}
-        title="Account Actions"
-        subtitle="Manage your account data and account status"
-        className="mb-8"
-      >
-        <div className="-my-1">
-          <Row>
-            <div className="flex items-center gap-3">
-              <Download className="size-5 text-teal" />
-              <div>
-                <p className="text-[14px] font-medium">Download Profile Data</p>
-                <p className="text-[12px] text-text-secondary">
-                  Export your personal data as CSV for backup or portability
-                </p>
-              </div>
-            </div>
-            <Btn variant="secondary">Download Data</Btn>
-          </Row>
-          <Row>
-            <div className="flex items-center gap-3">
-              <Trash2 className="size-5 text-critical" />
-              <div>
-                <p className="text-[14px] font-medium text-critical">Delete Account</p>
-                <p className="text-[12px] text-text-secondary">
-                  Permanently delete your account and all associated data. This action
-                  cannot be undone.
-                </p>
-              </div>
-            </div>
-            <Btn variant="danger" onClick={() => setModal(true)}>
-              Delete Account
-            </Btn>
-          </Row>
-        </div>
-      </SectionCard>
-
-      {/* Delete confirmation modal */}
-      {modal && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
-          <Card className="w-full max-w-[500px] p-6">
-            <div className="mb-4 flex items-start justify-between">
-              <div className="grid size-12 place-items-center rounded-xl bg-critical/15">
-                <TriangleAlert className="size-6 text-critical" />
-              </div>
-              <button
-                onClick={() => setModal(false)}
-                className="text-text-secondary hover:text-text-primary"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
-            <h3 className="text-[22px] font-bold text-critical">Delete Account?</h3>
-            <p className="mt-2 text-[13px] leading-relaxed text-text-secondary">
-              This will permanently erase your profile, incidents, and all associated
-              data. Type your email to confirm.
-            </p>
-            <div className="mt-4">
-              <Input
-                placeholder={email}
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-              />
-            </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <Btn variant="secondary" onClick={() => setModal(false)}>
-                Cancel
-              </Btn>
-              <Btn
-                variant="danger"
-                disabled={confirm !== email}
-                className="disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Delete Account
-              </Btn>
-            </div>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }

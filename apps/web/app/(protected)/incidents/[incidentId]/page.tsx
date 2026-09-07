@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ChevronRight, Link2, ScanSearch } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Card, Tag } from "@/components/primitives";
-import { getIncidentById } from "@/lib/data";
-import { alerts as demoAlerts, evidenceRecords as demoEvidence } from "@/lib/demo-data";
+import { getIncidentById, getAlertsForIncident, getEvidenceForIncident } from "@/lib/data";
 import { timeAgo } from "@/lib/format";
 
 const statusTone: Record<string, string> = {
@@ -24,8 +23,10 @@ export default async function IncidentDetailPage({
   const incident = await getIncidentById(incidentId);
   if (!incident) notFound();
 
-  const linkedAlerts = demoAlerts.filter((a) => incident.alertIds.includes(a.id));
-  const linkedEvidence = demoEvidence.filter((e) => incident.evidenceIds.includes(e.id));
+  const [linkedAlerts, linkedEvidence] = await Promise.all([
+    getAlertsForIncident(incidentId),
+    getEvidenceForIncident(incidentId),
+  ]);
 
   return (
     <div className="animate-fade-in space-y-6">

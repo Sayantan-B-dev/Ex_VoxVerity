@@ -1,21 +1,21 @@
-"use client";
-
 import Link from "next/link";
-import { useParams } from "next/navigation";
 import { notFound } from "next/navigation";
 import { ArrowLeft, FlaskConical } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Card, Tag } from "@/components/primitives";
 import RiskMeter from "@/components/RiskMeter";
-import { analysisResults, labAudioFiles } from "@/lib/demo-data";
+import { getAnalysisById } from "@/lib/data";
 import { riskBand, bandTag, timeAgo } from "@/lib/format";
 
-export default function AnalysisDetailPage() {
-  const params = useParams<{ analysisId: string }>();
-  const result = analysisResults.find((r) => r.id === params.analysisId);
+export default async function AnalysisDetailPage({
+  params,
+}: {
+  params: Promise<{ analysisId: string }>;
+}) {
+  const { analysisId } = await params;
+  const result = await getAnalysisById(analysisId);
   if (!result) notFound();
 
-  const file = labAudioFiles.find((f) => f.id === result.fileId);
   const signals = [
     { label: "Synthetic Voice Signal", value: result.syntheticScore, color: "#ff3b3b" },
     { label: "Speaker Similarity", value: result.speakerSimilarity, color: "#35d6c1" },
@@ -42,7 +42,7 @@ export default function AnalysisDetailPage() {
       <PageHeader
         crumb="Analysis"
         title={result.id}
-        subtitle={`${file?.name ?? "Session"} · ${timeAgo(result.createdAt)}`}
+        subtitle={`Session ${result.sessionId ?? "—"} · ${timeAgo(result.createdAt)}`}
       />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -50,7 +50,7 @@ export default function AnalysisDetailPage() {
           <p className="self-start text-[15px] font-semibold">Risk Score</p>
           <RiskMeter value={result.risk} size={200} centerValue={String(result.risk)} centerLabel="risk score" />
           <Tag level={bandTag(riskBand(result.risk))}>{bandTag(riskBand(result.risk))}</Tag>
-          <p className="text-center text-[12px] text-text-secondary">{result.notes}</p>
+          <p className="text-center text-[12px] text-text-secondary">{result.notes || "3-second chunk analysis."}</p>
         </Card>
 
         <div className="space-y-6 xl:col-span-2">

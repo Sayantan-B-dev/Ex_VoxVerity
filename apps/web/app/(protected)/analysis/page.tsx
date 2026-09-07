@@ -8,7 +8,7 @@ import { getAnalysisHistory } from "@/lib/data";
 import { riskBand, bandTag, timeAgo } from "@/lib/format";
 
 export default async function AnalysisPage() {
-  const { source, results, files } = await getAnalysisHistory();
+  const { results, files } = await getAnalysisHistory();
   const byId = new Map(files.map((f) => [f.id, f]));
 
   const columns: Column<(typeof results)[number]>[] = [
@@ -70,11 +70,7 @@ export default async function AnalysisPage() {
       <PageHeader
         crumb="Analysis"
         title="Analysis Results"
-        subtitle={
-          source === "demo"
-            ? "Deterministic DSP + model analysis. Showing demo data — analyze a file in the Lab for live results."
-            : "Deterministic DSP + model analysis of audio files and sessions."
-        }
+        subtitle="Per-3s-chunk DSP + model analysis stored from live calls."
       />
 
       <Card className="p-6">

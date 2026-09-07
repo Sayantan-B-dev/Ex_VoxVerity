@@ -4,8 +4,7 @@ import { ArrowLeft, Phone, Globe, ShieldCheck, AlertTriangle, Link2 } from "luci
 import PageHeader from "@/components/PageHeader";
 import { Card, Tag } from "@/components/primitives";
 import RiskMeter from "@/components/RiskMeter";
-import { getCallById } from "@/lib/data";
-import { alerts as demoAlerts, incidents as demoIncidents, evidenceRecords as demoEvidence } from "@/lib/demo-data";
+import { getCallById, getAlertsForCall, getIncidentsForCall, getEvidenceForCall } from "@/lib/data";
 import { riskBand, bandTag, formatDuration, timeAgo } from "@/lib/format";
 
 export default async function CallDetailPage({
@@ -17,9 +16,14 @@ export default async function CallDetailPage({
   const call = await getCallById(callId);
   if (!call) notFound();
 
-  const alert = demoAlerts.find((a) => a.id === call.alertId);
-  const incident = demoIncidents.find((i) => i.id === call.incidentId);
-  const evidence = demoEvidence.find((e) => e.callId === call.id);
+  const [alerts, incidents, evidenceList] = await Promise.all([
+    getAlertsForCall(callId),
+    getIncidentsForCall(callId),
+    getEvidenceForCall(callId),
+  ]);
+  const alert = alerts[0];
+  const incident = incidents[0];
+  const evidence = evidenceList[0];
 
   const metrics = [
     { label: "Synthetic Voice Signal", value: call.syntheticLabel.replace(/_/g, " "), tone: call.risk >= 76 ? "text-critical" : call.risk >= 51 ? "text-orange" : "text-teal" },

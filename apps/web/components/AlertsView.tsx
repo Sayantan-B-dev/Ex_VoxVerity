@@ -4,20 +4,14 @@ import Link from "next/link";
 import { useState } from "react";
 import { Bell, Check, ChevronRight, Info, Siren, TriangleAlert } from "lucide-react";
 import { Card, Tag, TickMeter } from "./primitives";
-import type { SecurityAlert } from "@/lib/demo-data";
+import type { SecurityAlert } from "@/lib/types";
 import { riskBand, bandTag, timeAgo } from "@/lib/format";
 import { acknowledgeAlert } from "@/app/(protected)/alerts/actions";
 
 const iconFor = (severity: string) =>
   severity === "CRITICAL" ? TriangleAlert : severity === "HIGH" ? Siren : Info;
 
-export default function AlertsView({
-  alerts,
-  source,
-}: {
-  alerts: SecurityAlert[];
-  source?: string;
-}) {
+export default function AlertsView({ alerts }: { alerts: SecurityAlert[] }) {
   const [acknowledged, setAcknowledged] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,12 +38,7 @@ export default function AlertsView({
             Security Alerts
           </h1>
           <p className="text-[13px] text-text-secondary">
-            Real-time threats detected across protected voice channels.
-            {source === "demo" && (
-              <span className="ml-2 rounded bg-warn/15 px-1.5 py-0.5 text-[11px] text-warn">
-                demo data — connect Supabase for live alerts
-              </span>
-            )}
+            Threats detected by the risk engine across voice sessions.
           </p>
         </div>
         <span className="inline-flex items-center gap-1.5 rounded-lg border border-critical/40 bg-critical/10 px-3 py-2 text-[13px] font-medium text-critical">

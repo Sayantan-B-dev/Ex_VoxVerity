@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ScanSearch, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Card, Tag } from "@/components/primitives";
 import DataTable from "@/components/DataTable";
@@ -16,7 +16,7 @@ const statusTone: Record<string, string> = {
 };
 
 export default async function IncidentsPage() {
-  const { source, incidents } = await getIncidentsData();
+  const incidents = await getIncidentsData();
 
   const columns: Column<(typeof incidents)[number]>[] = [
     {
@@ -65,16 +65,7 @@ export default async function IncidentsPage() {
       <PageHeader
         crumb="Incidents"
         title="Incidents"
-        subtitle={
-          source === "demo"
-            ? "Investigation containers. Showing demo data — connect Supabase for live incidents."
-            : "Investigation containers linked to alerts, calls, and evidence."
-        }
-        actions={
-          <button className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-teal/40 bg-teal/15 px-4 text-[13px] font-medium text-teal transition-colors hover:bg-teal/25">
-            <ScanSearch className="size-4" /> New Incident
-          </button>
-        }
+        subtitle="Investigation containers linked to alerts, calls, and evidence."
       />
 
       <Card className="p-6">

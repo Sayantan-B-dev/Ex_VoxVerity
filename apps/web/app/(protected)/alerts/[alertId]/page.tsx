@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, AlertTriangle, Check, ChevronRight, Link2 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Card, Tag, TickMeter } from "@/components/primitives";
-import { getAlertById } from "@/lib/data";
-import { calls as demoCalls, incidents as demoIncidents, evidenceRecords as demoEvidence } from "@/lib/demo-data";
+import { getAlertById, getCallById, getIncidentById, getEvidenceForCall } from "@/lib/data";
 import { riskBand, bandTag, timeAgo } from "@/lib/format";
 import { acknowledgeAlert } from "@/app/(protected)/alerts/actions";
 
@@ -17,9 +16,12 @@ export default async function AlertDetailPage({
   const alert = await getAlertById(alertId);
   if (!alert) notFound();
 
-  const call = demoCalls.find((c) => c.id === alert.callId);
-  const incident = demoIncidents.find((i) => i.id === alert.incidentId);
-  const evidence = demoEvidence.find((e) => e.callId === alert.callId);
+  const [call, incident, evidenceList] = await Promise.all([
+    alert.callId ? getCallById(alert.callId) : Promise.resolve(null),
+    alert.incidentId ? getIncidentById(alert.incidentId) : Promise.resolve(null),
+    alert.callId ? getEvidenceForCall(alert.callId) : Promise.resolve([]),
+  ]);
+  const evidence = evidenceList[0];
 
   async function onAcknowledge() {
     "use server";

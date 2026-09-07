@@ -6,7 +6,7 @@ import PageHeader from "./PageHeader";
 import { Card, Tag } from "./primitives";
 import DataTable from "./DataTable";
 import type { Column } from "./DataTable";
-import type { EvidenceRecord } from "@/lib/demo-data";
+import type { EvidenceRecord } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
 
 function CopyHash({ hash }: { hash: string }) {
@@ -27,13 +27,7 @@ function CopyHash({ hash }: { hash: string }) {
   );
 }
 
-export default function EvidenceView({
-  records,
-  source,
-}: {
-  records: EvidenceRecord[];
-  source?: string;
-}) {
+export default function EvidenceView({ records }: { records: EvidenceRecord[] }) {
   const [query, setQuery] = useState("");
   const [checked, setChecked] = useState<string | null>(null);
   const [serverResult, setServerResult] = useState<string | null>(null);
@@ -133,11 +127,7 @@ export default function EvidenceView({
       <PageHeader
         crumb="Evidence"
         title="Evidence Registry"
-        subtitle={
-          source === "demo"
-            ? "Canonical evidence hashes. Showing demo data — connect Supabase for live records."
-            : "Canonical evidence hashes registered on the Polygon Amoy testnet."
-        }
+        subtitle="Canonical evidence hashes registered on the Polygon Amoy testnet."
       />
 
       <Card className="flex items-start gap-3 border-teal/30 bg-teal/10 p-4">
