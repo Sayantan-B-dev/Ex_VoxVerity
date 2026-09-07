@@ -83,7 +83,7 @@ Then set `NEXT_PUBLIC_AI_SERVICE_URL` / `AI_SERVICE_URL` on Vercel to
 | Item | Reality |
 |---|---|
 | Spin-down | After ~15 min idle; first request cold-starts in ~1 min. WebSocket calls will reconnect — the app handles it (status → ended → re-create room). |
-| 512 MB RAM | Enough for CPU inference, but speechbrain+torch load is heavy. If you see OOM restarts, stop the ECAPA model via the Settings → Model tab ("AASIST-L only" still works) or use Option B. |
+| 512 MB RAM | Fits because `requirements.txt` pins CPU-only torch and ECAPA-TDNN lazy-loads on first speaker request (AASIST-L/onnxruntime loads at boot, it's small). If you still see OOM restarts, disable the speaker model via Settings → Model tab ("AASIST-L only") or use Option B. |
 | 750 hrs/mo | One always-on service uses ~730 hrs/month — you get exactly one free service. |
 | Bandwidth | Fine for 3s × 48 KB chunks per call session. |
 

@@ -64,10 +64,10 @@ async def load_models():
         logger.warning(f"AASIST-L model not loaded: {aasist.status['error']}")
 
     ecapa = get_ecapa()
-    if ecapa.load():
-        logger.info("ECAPA-TDNN model loaded successfully")
-    else:
-        logger.warning(f"ECAPA-TDNN model not loaded: {ecapa.status['error']}")
+    # ECAPA-TDNN is NOT loaded here on purpose: the weights download plus
+    # torch/speechbrain RAM exceeds small-instance budgets at boot (OOM).
+    # compute_embedding() lazy-loads it on the first speaker request.
+    logger.info("ECAPA-TDNN lazy-loads on first speaker request (skipped at startup to fit free-tier RAM)")
 
     voiceprint = get_voiceprint()
     if voiceprint.is_enrolled():

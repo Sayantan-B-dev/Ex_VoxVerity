@@ -86,6 +86,13 @@ class ECAPAWrapper:
             1D numpy array of 192-dim embedding, or None if failed.
         """
         if not self._loaded or self.model is None:
+            # Lazy-load on first use so the heavyweight speaker model
+            # (weights download + RAM) is skipped at server startup.
+            # This keeps small/f free-tier instances bootable; the first
+            # speaker request pays the one-time load cost instead.
+            if not self.load():
+                return None
+        if not self._loaded or self.model is None:
             return None
 
         try:
