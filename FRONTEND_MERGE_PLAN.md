@@ -189,8 +189,8 @@ call in `apps/web/lib/*`, with **zero component changes**.
 - [ ] `components/Navbar.tsx` (menu toggle, search, date, bell, avatar)
 - [ ] `components/PageHeader.tsx` (breadcrumb + title + actions)
 - [x] `lib/demo-data.ts` + `lib/format.ts`
-- [ ] `components/Sidebar.tsx` (fixed rail, grouped nav, logout, system status) — done at Phase 6 shell commit
-- [ ] `components/Navbar.tsx` + `components/PageHeader.tsx` — done at Phase 6 shell commit
+- [x] `components/Sidebar.tsx` (fixed rail, grouped nav, logout, system status)
+- [x] `components/Navbar.tsx` + `components/PageHeader.tsx`
 
 ### Phase 5 — Public & auth pages
 - [x] `/` Landing (soumya Landing → VoxVerity voice-integrity copy)
@@ -199,13 +199,14 @@ call in `apps/web/lib/*`, with **zero component changes**.
 - [x] `/forgot-password`, `/reset-password`
 
 ### Phase 6 — Protected shell + core pages
-- [ ] `app/(protected)/layout.tsx` (Sidebar + Navbar shell) + `loading.tsx`
-- [ ] `/dashboard` (soumya Dashboard → voice risk content)
-- [ ] `/live` (soumya LiveMonitoring)
-- [ ] `/calls` + `/calls/[callId]` (FraudMonitoring → flagged calls)
-- [ ] `/alerts` + `/alerts/[alertId]`
-- [ ] `/profile`
-- [ ] `/settings` (soumya Settings) + settings sub-pages
+- [x] `app/(protected)/layout.tsx` (Sidebar + Navbar shell) + `loading.tsx`
+- [x] `/dashboard` (soumya Dashboard → voice risk content)
+- [x] `/live` (soumya LiveMonitoring)
+- [x] `/calls` + `/calls/[callId]` (FraudMonitoring → flagged calls)
+- [x] `/alerts` + `/alerts/[alertId]`
+- [x] `/profile`
+- [x] `/settings` (soumya Settings)
+- [ ] settings sub-pages (profile/security/notifications/privacy/risk) — with Phase 7
 
 ### Phase 7 — Secondary protected routes
 - [ ] `/analysis` + `/analysis/[analysisId]`
