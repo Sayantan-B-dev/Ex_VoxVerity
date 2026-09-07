@@ -1,0 +1,26 @@
+# Render Blueprint — VoxVerity AI service.
+# Connect the repo in Render (New → Blueprint) and this file defines the
+# service, including the pinned Python version.
+#
+# PYTHON_VERSION is pinned because Render's default (3.14) has no prebuilt
+# pydantic-core wheel, so `pip install -r requirements.txt` fails trying to
+# compile it with maturin on a read-only filesystem.
+
+services:
+  - type: web
+    name: voxverity-ai-service
+    runtime: python
+    rootDir: services/ai-service
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.4
+      - key: DEBUG
+        value: false
+      # Set these in the Render dashboard (do NOT commit secrets here):
+      # - CORS_ORIGINS (https://<your-app>.vercel.app,http://localhost:3000)
+      # - WS_ALLOWED_ORIGINS (same as above)
+      # - WS_TOKEN_SECRET (exact same value as Vercel's WS_TOKEN_SECRET)

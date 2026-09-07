@@ -41,6 +41,7 @@ Make sure `services/ai-service` is self-contained for a build:
 
    | Name | Value |
    |---|---|
+   | `PYTHON_VERSION` | `3.13.4` — **required.** Render defaults to Python 3.14, which has no prebuilt `pydantic-core` wheel, so the build fails in `maturin`/cargo (see Troubleshooting below). |
    | `CORS_ORIGINS` | `https://<your-app>.vercel.app,http://localhost:3000` |
    | `WS_ALLOWED_ORIGINS` | same as above |
    | `WS_TOKEN_SECRET` | **exact same value as Vercel's `WS_TOKEN_SECRET`** |
@@ -79,13 +80,28 @@ Then set `NEXT_PUBLIC_AI_SERVICE_URL` / `AI_SERVICE_URL` on Vercel to
 `https://<your-ai-service>.onrender.com` and redeploy the web app.
 
 ### A5. Free-tier realities
-
 | Item | Reality |
 |---|---|
 | Spin-down | After ~15 min idle; first request cold-starts in ~1 min. WebSocket calls will reconnect — the app handles it (status → ended → re-create room). |
 | 512 MB RAM | Enough for CPU inference, but speechbrain+torch load is heavy. If you see OOM restarts, stop the ECAPA model via the Settings → Model tab ("AASIST-L only" still works) or use Option B. |
 | 750 hrs/mo | One always-on service uses ~730 hrs/month — you get exactly one free service. |
 | Bandwidth | Fine for 3s × 48 KB chunks per call session. |
+
+### A6. Troubleshooting
+
+**Build fails on `pydantic-core` / `maturin` / `Read-only file system`:**
+you are on Python 3.14 (Render's current default). Pinned `pydantic==2.11.3`
+resolves to `pydantic-core==2.33.1`, which ships no `cp314` wheel, so pip
+tries to compile it from source and dies in `cargo`. Fix: set the
+`PYTHON_VERSION` environment variable to `3.13.4` in the Render dashboard
+(or use the repo's `render.yaml` Blueprint, which already pins it), then
+**Manual Deploy → Clear build cache & deploy**.
+
+**Faster, repeatable setup:** instead of configuring the service by hand,
+use **New → Blueprint** and point Render at this repo — `render.yaml` sets
+the root directory, build/start commands, health check, and `PYTHON_VERSION`.
+You only add the three secrets (`CORS_ORIGINS`, `WS_ALLOWED_ORIGINS`,
+`WS_TOKEN_SECRET`) in the dashboard afterwards.
 
 ---
 
