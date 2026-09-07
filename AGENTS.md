@@ -25,7 +25,7 @@ VoxVerity is an AI-powered real-time voice integrity verification platform. It d
 | Web framework | Next.js 16 (App Router), TypeScript |
 | Runtime | Node.js 24 LTS |
 | Package manager | npm |
-| Backend auth/database | Supabase (Auth, PostgreSQL, RLS, Storage) |
+| Backend auth/database | Supabase (Storage) |
 | AI service | Python 3.13, FastAPI, PyTorch |
 | DSP | Librosa, SciPy, NumPy |
 | Models | AASIST-L (anti-spoofing), ECAPA-TDNN (speaker embeddings) |

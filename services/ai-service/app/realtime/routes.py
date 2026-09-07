@@ -1,6 +1,12 @@
 """WebSocket Routes for VoxVerity Realtime Audio Pipeline.
 
 Handles browser-to-server audio streaming and analysis.
+
+Security:
+  - Origin header validated against configured allowlist on accept.
+  - Per-IP connection count capped.
+  - Session IDs must be valid UUIDs.
+  - Stale sessions are swept automatically (TTL + cleanup loop).
 """
 
 import json
@@ -15,15 +21,60 @@ from app.dsp.human_pattern import analyze_human_pattern
 from app.models.aasist_wrapper import get_aasist
 from app.risk.engine import get_risk_engine
 from app.risk.alerts import get_alert_service
+from app.core.ws_auth import (
+    get_origin_validator,
+    get_connection_limiter,
+    get_session_ttl,
+    is_valid_uuid,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Background sweep handle
+_sweep_task: asyncio.Task | None = None
+
+
+async def _sweep_stale_sessions():
+    """Background task that removes expired realtime sessions every 30 seconds."""
+    manager = get_ws_manager()
+    while True:
+        await asyncio.sleep(30)
+        session_ids = set(manager.sessions.keys())
+        expired = get_session_ttl().sweep(session_ids)
+        for sid in expired:
+            # Disconnect the session if still connected
+            ws = manager.connections.get(sid)
+            if ws:
+                try:
+                    await manager._send_error(sid, "Session expired due to inactivity")
+                    await ws.close(code=4001, reason="Session expired")
+                except Exception:
+                    pass
+            await manager.disconnect(sid)
+            logger.info(f"Swept stale session {sid}")
+
+
+def _ensure_sweep_running():
+    """Start the background sweep task if not already running."""
+    global _sweep_task
+    if _sweep_task is None or _sweep_task.done():
+        try:
+            loop = asyncio.get_running_loop()
+            _sweep_task = loop.create_task(_sweep_stale_sessions())
+        except RuntimeError:
+            pass
+
 
 @router.websocket("/v1/realtime/{session_id}")
 async def realtime_audio(websocket: WebSocket, session_id: str):
     """WebSocket endpoint for realtime audio analysis.
+
+    Security checks:
+      - Origin header must be in allowlist (or absent for non-browser clients).
+      - Per-IP connection count must be under the limit.
+      - Session ID must be a valid UUID.
 
     Protocol:
       Client sends JSON messages:
@@ -42,10 +93,38 @@ async def realtime_audio(websocket: WebSocket, session_id: str):
         - session_stopped
         - server_error
     """
+    # --- Validate session ID format ---
+    if not is_valid_uuid(session_id):
+        await websocket.accept()
+        await websocket.send_json({"type": "server_error", "message": "Invalid session ID format"})
+        await websocket.close(code=4000, reason="Invalid session ID")
+        return
+
+    # --- Origin + rate limit validation ---
+    origin_validator = get_origin_validator()
+    limiter = get_connection_limiter()
+    origin = websocket.headers.get("origin")
+    if not origin_validator.is_allowed(origin):
+        await websocket.accept()
+        await websocket.send_json({"type": "server_error", "message": "Origin not allowed"})
+        await websocket.close(code=4003, reason="Origin not allowed")
+        return
+
+    client_ip = websocket.client.host if websocket.client else "unknown"
+    if not limiter.try_acquire(client_ip):
+        await websocket.accept()
+        await websocket.send_json({"type": "server_error", "message": "Too many connections"})
+        await websocket.close(code=4008, reason="Rate limited")
+        return
+
+    # Start session TTL sweep if not running
+    _ensure_sweep_running()
+
     manager = get_ws_manager()
 
     try:
         await manager.connect(websocket, session_id)
+        get_session_ttl().touch(session_id)
 
         # Start chunk processing loop
         processor_task = asyncio.create_task(
@@ -56,6 +135,7 @@ async def realtime_audio(websocket: WebSocket, session_id: str):
         try:
             while True:
                 raw = await websocket.receive_text()
+                get_session_ttl().touch(session_id)
                 try:
                     data = json.loads(raw)
                     await manager.handle_message(session_id, data)
@@ -76,6 +156,8 @@ async def realtime_audio(websocket: WebSocket, session_id: str):
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
     finally:
+        limiter.release(client_ip)
+        get_session_ttl().remove(session_id)
         await manager.disconnect(session_id)
 
 

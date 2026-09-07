@@ -4,6 +4,12 @@ Rooms hold exactly one caller + one receiver. Ringing/accepting happens in the
 Next.js app (call_invites table + Supabase Realtime); this server relays the
 WebRTC handshake (offer/answer/ICE) and call lifecycle (hangup / peer_left).
 
+Security:
+  - Origin header validated against configured allowlist on accept.
+  - Per-IP connection count capped.
+  - Room IDs must be valid UUIDs.
+  - Stale rooms are swept automatically (TTL + cleanup loop).
+
 Protocol:
   Client sends:
     - join:     {type: "join", role: "caller"|"receiver", peer_id, peer_name}
@@ -23,9 +29,17 @@ Protocol:
 
 import json
 import time
+import asyncio
 import logging
 from typing import Dict, Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
+from app.core.ws_auth import (
+    get_origin_validator,
+    get_connection_limiter,
+    get_room_ttl,
+    is_valid_uuid,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +47,9 @@ router = APIRouter()
 
 # In-memory room state
 rooms: Dict[str, "Room"] = {}
+
+# Background sweep handle
+_sweep_task: Optional[asyncio.Task] = None
 
 
 class Room:
@@ -69,10 +86,12 @@ class Room:
             self.state = "ACTIVE"
         elif self.caller is not None:
             self.state = "RINGING"
+        # Update TTL on activity
+        get_room_ttl().touch(self.room_id)
         return True, ""
 
     def remove_peer(self, websocket: WebSocket) -> str:
-        """Remove a peer; returns the role that left (or \"\")."""
+        """Remove a peer; returns the role that left (or "")."""
         role = ""
         if self.caller == websocket:
             self.caller = None
@@ -107,9 +126,66 @@ class Room:
         }
 
 
+async def _sweep_stale_rooms():
+    """Background task that removes expired rooms every 30 seconds."""
+    while True:
+        await asyncio.sleep(30)
+        expired = get_room_ttl().sweep(set(rooms.keys()))
+        for room_id in expired:
+            room = rooms.pop(room_id, None)
+            if room:
+                # Notify any remaining peers
+                remaining = room.caller or room.receiver
+                if remaining:
+                    try:
+                        await _send(remaining, {"type": "error", "message": "Room expired due to inactivity"})
+                    except Exception:
+                        pass
+                logger.info(f"Swept stale room {room_id}")
+
+
+def _ensure_sweep_running():
+    """Start the background sweep task if not already running."""
+    global _sweep_task
+    if _sweep_task is None or _sweep_task.done():
+        try:
+            loop = asyncio.get_running_loop()
+            _sweep_task = loop.create_task(_sweep_stale_rooms())
+        except RuntimeError:
+            pass
+
+
 @router.websocket("/v1/webrtc/{room_id}")
 async def webrtc_signaling(websocket: WebSocket, room_id: str):
+    # --- Validate room ID format ---
+    if not is_valid_uuid(room_id):
+        await websocket.accept()
+        await _send(websocket, {"type": "error", "message": "Invalid room ID format"})
+        await websocket.close(code=4000, reason="Invalid room ID")
+        return
+
+    # --- Origin + rate limit validation ---
+    origin_validator = get_origin_validator()
+    limiter = get_connection_limiter()
+    origin = websocket.headers.get("origin")
+    if not origin_validator.is_allowed(origin):
+        await websocket.accept()
+        await _send(websocket, {"type": "error", "message": "Origin not allowed"})
+        await websocket.close(code=4003, reason="Origin not allowed")
+        return
+
+    client_ip = websocket.client.host if websocket.client else "unknown"
+    if not limiter.try_acquire(client_ip):
+        await websocket.accept()
+        await _send(websocket, {"type": "error", "message": "Too many connections"})
+        await websocket.close(code=4008, reason="Rate limited")
+        return
+
+    # Start room TTL sweep if not running
+    _ensure_sweep_running()
+
     await websocket.accept()
+    get_room_ttl().touch(room_id)
 
     if room_id not in rooms:
         rooms[room_id] = Room(room_id)
@@ -134,6 +210,16 @@ async def webrtc_signaling(websocket: WebSocket, room_id: str):
                 peer_id = data.get("peer_id", "unknown")
                 peer_name = data.get("peer_name", "")
 
+                # Validate role
+                if role not in ("caller", "receiver"):
+                    await _send(websocket, {"type": "error", "message": "Invalid role"})
+                    continue
+
+                # Validate peer_id is UUID-like
+                if not is_valid_uuid(peer_id):
+                    await _send(websocket, {"type": "error", "message": "Invalid peer ID"})
+                    continue
+
                 ok, reason = room.add_peer(websocket, role, peer_id, peer_name)
                 if not ok:
                     await _send(websocket, {"type": "error", "message": reason})
@@ -153,6 +239,7 @@ async def webrtc_signaling(websocket: WebSocket, room_id: str):
                 logger.info(f"Peer {peer_id} joined room {room_id} as {role} (state={room.state})")
 
             elif msg_type in ("offer", "answer", "ice_candidate"):
+                get_room_ttl().touch(room_id)
                 other = room.get_peer(websocket)
                 if other:
                     await _send(other, data)
@@ -175,12 +262,14 @@ async def webrtc_signaling(websocket: WebSocket, room_id: str):
         logger.error(f"Signaling error in {room_id}: {e}")
     finally:
         role = room.remove_peer(websocket)
+        limiter.release(client_ip)
         # Tell the remaining peer their counterpart left.
         remaining = room.caller or room.receiver
         if remaining and role:
             await _send(remaining, {"type": "peer_left", "role": role})
         if not room.caller and not room.receiver:
             rooms.pop(room_id, None)
+            get_room_ttl().remove(room_id)
         logger.info(f"Peer {peer_id} disconnected from room {room_id}")
 
 

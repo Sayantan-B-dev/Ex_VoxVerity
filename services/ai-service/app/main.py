@@ -6,6 +6,7 @@ from app.realtime.routes import router as realtime_router
 from app.realtime.signaling import router as signaling_router
 from app.core.config import settings
 from app.core.rate_limit import RateLimitMiddleware
+from app.core.ws_auth import configure_ws_security
 from app.models.aasist_wrapper import get_aasist
 from app.models.ecapa_wrapper import get_ecapa
 
@@ -38,6 +39,21 @@ app.include_router(signaling_router)
 @app.on_event("startup")
 async def load_models():
     """Attempt to load AI models at startup."""
+    # Configure WebSocket security from settings
+    ws_origins = {o.strip() for o in settings.ws_allowed_origins.split(",") if o.strip()}
+    configure_ws_security(
+        allowed_origins=ws_origins,
+        max_connections_per_ip=settings.ws_max_connections_per_ip,
+        room_ttl_seconds=settings.ws_room_ttl_seconds,
+        session_ttl_seconds=settings.ws_session_ttl_seconds,
+    )
+    logger.info(
+        f"WebSocket security configured: origins={len(ws_origins)}, "
+        f"max_conn/IP={settings.ws_max_connections_per_ip}, "
+        f"room_ttl={settings.ws_room_ttl_seconds}s, "
+        f"session_ttl={settings.ws_session_ttl_seconds}s"
+    )
+
     aasist = get_aasist()
     if aasist.load():
         logger.info("AASIST-L model loaded successfully")
