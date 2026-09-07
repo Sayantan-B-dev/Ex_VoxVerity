@@ -5,24 +5,16 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   Activity,
-  BarChart3,
   Bell,
-  Bot,
-  CheckCheck,
-  FlaskConical,
   Hexagon,
   LayoutDashboard,
   Link2,
   LogOut,
   Microscope,
   Phone,
-  Plug,
   Radio,
   ScanSearch,
-  ScrollText,
   Settings,
-  ShieldAlert,
-  ShieldCheck,
   User,
   X,
 } from "lucide-react";
@@ -43,30 +35,15 @@ const nav: { section: string; items: { href: string; label: string; icon: typeof
     items: [
       { href: "/alerts", label: "Alerts", icon: Bell },
       { href: "/incidents", label: "Incidents", icon: ScanSearch },
-      { href: "/verification", label: "Verification", icon: CheckCheck },
-      { href: "/lab", label: "Analysis Lab", icon: FlaskConical },
     ],
   },
   {
     section: "Intelligence",
-    items: [
-      { href: "/analytics", label: "Analytics", icon: BarChart3 },
-      { href: "/blockchain", label: "Evidence", icon: Link2 },
-      { href: "/audit", label: "Audit", icon: ScrollText },
-      { href: "/threat-intelligence", label: "Threats", icon: ShieldAlert },
-    ],
+    items: [{ href: "/blockchain", label: "Evidence", icon: Link2 }],
   },
   {
     section: "Configuration",
-    items: [
-      { href: "/integrations", label: "Integrations", icon: Plug },
-      { href: "/models", label: "Models", icon: Bot },
-      { href: "/settings", label: "Settings", icon: Settings },
-    ],
-  },
-  {
-    section: "Admin",
-    items: [{ href: "/admin", label: "Admin Panel", icon: ShieldCheck }],
+    items: [{ href: "/settings", label: "Settings", icon: Settings }],
   },
 ];
 

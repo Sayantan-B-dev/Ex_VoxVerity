@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FlaskConical, Upload, ChevronRight } from "lucide-react";
+import { FlaskConical, ChevronRight } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Card, Tag } from "@/components/primitives";
 import DataTable from "@/components/DataTable";
@@ -75,14 +75,6 @@ export default async function AnalysisPage() {
             ? "Deterministic DSP + model analysis. Showing demo data — analyze a file in the Lab for live results."
             : "Deterministic DSP + model analysis of audio files and sessions."
         }
-        actions={
-          <Link
-            href="/lab/audio"
-            className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-teal/40 bg-teal/15 px-4 text-[13px] font-medium text-teal transition-colors hover:bg-teal/25"
-          >
-            <Upload className="size-4" /> Analyze Audio
-          </Link>
-        }
       />
 
       <Card className="p-6">
@@ -92,8 +84,7 @@ export default async function AnalysisPage() {
       <Card className="flex items-start gap-3 border-teal/30 bg-teal/10 p-4">
         <FlaskConical className="size-5 shrink-0 text-teal" />
         <p className="text-[12px] leading-relaxed text-text-secondary">
-          The Analysis Lab runs the same DSP and model pipeline as live monitoring on controlled
-          audio files — useful for deterministic testing and SIH demonstration repeatability.
+          Per-3s-chunk results from live calls are stored in the database and rendered here.
         </p>
       </Card>
     </div>

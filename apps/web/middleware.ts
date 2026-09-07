@@ -13,16 +13,8 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/analysis") ||
     request.nextUrl.pathname.startsWith("/alerts") ||
     request.nextUrl.pathname.startsWith("/incidents") ||
-    request.nextUrl.pathname.startsWith("/verification") ||
-    request.nextUrl.pathname.startsWith("/analytics") ||
     request.nextUrl.pathname.startsWith("/blockchain") ||
-    request.nextUrl.pathname.startsWith("/audit") ||
-    request.nextUrl.pathname.startsWith("/integrations") ||
-    request.nextUrl.pathname.startsWith("/models") ||
     request.nextUrl.pathname.startsWith("/settings") ||
-    request.nextUrl.pathname.startsWith("/admin") ||
-    request.nextUrl.pathname.startsWith("/lab") ||
-    request.nextUrl.pathname.startsWith("/threat-intelligence") ||
     request.nextUrl.pathname.startsWith("/profile");
 
   if (isProtected && !session) {

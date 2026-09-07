@@ -89,38 +89,6 @@ export async function getAiConfig() {
   return getJson("/v1/config");
 }
 
-/** Server-side file analysis (multipart). Used by /api/lab/analyze route. */
-export async function analyzeAudioFileServer(
-  bytes: Uint8Array,
-  filename: string,
-  contentType = "audio/wav"
-) {
-  const base = baseUrlServer();
-  if (!base) throw new Error("AI service not configured");
-  const form = new FormData();
-  form.append("file", new Blob([bytes as unknown as ArrayBuffer], { type: contentType }), filename);
-  const res = await fetch(`${base}/v1/analyze/file`, {
-    method: "POST",
-    headers: { ...authHeaders() },
-    body: form,
-    signal: AbortSignal.timeout(120000),
-  });
-  if (!res.ok) throw new Error(`AI service HTTP ${res.status}`);
-  return res.json();
-}
-
-/** Browser-side file analysis via our Next.js proxy (keeps API key server-side). */
-export async function analyzeAudioFileViaProxy(file: File) {
-  const form = new FormData();
-  form.append("file", file);
-  const res = await fetch("/api/lab/analyze", { method: "POST", body: form });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error ?? `Analysis failed (HTTP ${res.status})`);
-  }
-  return res.json();
-}
-
 // ── Realtime WebSocket protocol (browser) ─────────────────────────────
 // Server: services/ai-service/app/realtime/routes.py + manager.py
 // Messages out: {type:'hello'} {type:'start_session',source} {type:'audio_chunk',sequence,audio_b64,encoding}
